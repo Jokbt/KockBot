@@ -242,7 +242,10 @@
           const [user, setUser] = useState(null);
           const [isDbLoaded, setIsDbLoaded] = useState(false);
           
+          // PWA Install State
           const [deferredPrompt, setDeferredPrompt] = useState(null);
+          const [isIOS, setIsIOS] = useState(false);
+          const [isStandalone, setIsStandalone] = useState(false);
 
           const [inspirationQuery, setInspirationQuery] = useState('');
           const [isGeneratingInspiration, setIsGeneratingInspiration] = useState(false);
@@ -336,6 +339,14 @@
           useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
 
           useEffect(() => {
+            // Kontrollera om användaren har iOS (iPhone/iPad)
+            const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            setIsIOS(ios);
+            
+            // Kontrollera om appen redan är installerad (gömmer knappen då)
+            const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            setIsStandalone(standalone);
+
             const handleBeforeInstallPrompt = (e) => {
               e.preventDefault();
               setDeferredPrompt(e);
@@ -349,6 +360,8 @@
               deferredPrompt.prompt();
               const { outcome } = await deferredPrompt.userChoice;
               if (outcome === 'accepted') setDeferredPrompt(null);
+            } else if (isIOS) {
+              showToast("På iPhone: Tryck på 'Dela'-ikonen i Safari (fyrkant med pil upp) i botten och välj 'Lägg till på hemskärmen'.");
             }
           };
 
@@ -985,7 +998,7 @@
                       </div>
                       <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
                       
-                      {deferredPrompt && (
+                      {(deferredPrompt || (isIOS && !isStandalone)) && (
                         <button onClick={installApp} className="ml-4 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
                           <Download size={14} /> Installera App
                         </button>
@@ -1118,7 +1131,7 @@
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
@@ -1300,6 +1313,19 @@
 
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
+
+        // Registrera en PWA Service Worker (Krävs för Android/Chrome)
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            try {
+              const swCode = `self.addEventListener('fetch', function() {});`;
+              const blob = new Blob([swCode], { type: 'application/javascript' });
+              navigator.serviceWorker.register(URL.createObjectURL(blob)).catch((err) => {
+                 console.log("ServiceWorker blockerad i vissa miljöer, men fungerar på GitHub Pages.");
+              });
+            } catch (e) { console.log('SW Error:', e); }
+          });
+        }
     </script>
 </body>
 </html>
