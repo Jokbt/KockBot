@@ -107,34 +107,113 @@
 
         const getRecipeImage = (name, collection) => {
           let translated = name.toLowerCase();
+          
+          // Utökad och förbättrad ordlista
           const dict = {
-            'rosépeppar': 'pink peppercorn', 'rosépeppargryta': 'creamy pink peppercorn stew',
-            'fläskfilé': 'pork tenderloin', 'fläskytterfilé': 'pork loin', 'hasselbackspotatis': 'hasselback potatoes',
-            'kyckling': 'chicken', 'köttfärs': 'ground beef', 'nötfärs': 'ground beef', 'blandfärs': 'ground meat',
-            'köttbullar': 'meatballs', 'korvstroganoff': 'sausage stroganoff', 'korv': 'sausage',
-            'potatis': 'potatoes', 'klyftpotatis': 'potato wedges', 'mos': 'mashed potatoes', 'pommes': 'french fries',
-            'ris': 'rice', 'soppa': 'soup', 'gryta': 'stew', 'torsk': 'cod fish', 'lax': 'salmon',
-            'fisk': 'fish', 'räkor': 'shrimp', 'sås': 'sauce', 'gräddsås': 'cream sauce', 'ost': 'cheese',
-            'vitlök': 'garlic', 'lök': 'onion', 'tomat': 'tomato', 'grädde': 'cream', 'smörgåstårta': 'swedish sandwich cake',
-            'äggakaka': 'thick pancake', 'ugnspannkaka': 'oven baked pancake', 'pannkaka': 'pancakes',
-            'plättar': 'small pancakes', 'pirog': 'pastry', 'timjan': 'thyme', 'persilja': 'parsley',
-            'basilika': 'basil', 'svamp': 'mushrooms', 'champinjon': 'button mushrooms', 'spenat': 'spinach',
-            'gratäng': 'gratin', 'paj': 'pie', 'tacopaj': 'taco pie', 'tacos': 'tacos', 'kebab': 'kebab',
-            'köttfärssås': 'bolognese sauce', 'lasagne': 'lasagna', 'mozzarella': 'mozzarella', 'halloumi': 'halloumi cheese',
-            'nudlar': 'noodles', 'wok': 'stir fry', 'burgare': 'hamburger', 'stek': 'steak', 'ryggbiff': 'sirloin steak',
-            'oxfilé': 'beef tenderloin', 'lövbiff': 'minute steak', 'högrev': 'chuck roast', 'kalops': 'beef stew',
-            'moussaka': 'moussaka', 'sjömansbiff': 'beef and potato stew', 'kroketter': 'croquettes', 'fiskpinnar': 'fish sticks',
-            'wallenbergare': 'veal patties', 'järpar': 'meat patties', 'lapskojs': 'potato and beef stew'
+            'rosépeppargryta': 'creamy pink peppercorn stew',
+            'rosépeppar': 'pink peppercorn',
+            'fläskytterfilé': 'pork loin',
+            'fläskfilé': 'pork tenderloin',
+            'hasselbackspotatis': 'hasselback potatoes',
+            'kycklingfärsbiffar': 'chicken patties',
+            'kycklingbiffar': 'chicken patties',
+            'kycklingfärs': 'ground chicken',
+            'kycklinglårfilé': 'chicken thighs',
+            'kyckling': 'chicken',
+            'köttfärssås': 'bolognese sauce',
+            'köttfärsbiffar': 'beef patties',
+            'köttfärs': 'ground beef',
+            'nötfärs': 'ground beef',
+            'blandfärs': 'ground meat',
+            'köttbullar': 'meatballs',
+            'korvstroganoff': 'sausage stroganoff',
+            'falukorv': 'swedish falukorv sausage',
+            'salsicciapasta': 'salsiccia pasta',
+            'salsiccia': 'salsiccia sausage',
+            'korv': 'sausage',
+            'klyftpotatis': 'potato wedges',
+            'potatis': 'potatoes',
+            'potatismos': 'mashed potatoes',
+            'mos': 'mashed potatoes',
+            'pommes frites': 'french fries',
+            'pommes': 'french fries',
+            'ris': 'rice',
+            'soppa': 'soup',
+            'gryta': 'stew',
+            'torskrygg': 'cod loin',
+            'torsk': 'cod fish',
+            'lax': 'salmon',
+            'fisk': 'fish',
+            'räkor': 'shrimp',
+            'gräddsås': 'cream sauce',
+            'sås': 'sauce',
+            'ost': 'cheese',
+            'vitlök': 'garlic',
+            'rödlök': 'red onion',
+            'lök': 'onion',
+            'tomater': 'tomatoes',
+            'tomat': 'tomato',
+            'grädde': 'cream',
+            'smörgåstårta': 'swedish sandwich cake',
+            'äggakaka': 'thick pancake',
+            'ugnspannkaka': 'oven baked pancake',
+            'pannkaka': 'pancakes',
+            'plättar': 'small pancakes',
+            'pirog': 'pastry',
+            'timjan': 'thyme',
+            'persilja': 'parsley',
+            'basilika': 'basil',
+            'champinjon': 'button mushrooms',
+            'svamp': 'mushrooms',
+            'spenat': 'spinach',
+            'gratäng': 'gratin',
+            'tacopaj': 'taco pie',
+            'paj': 'pie',
+            'tacos': 'tacos',
+            'kebab': 'kebab',
+            'lasagne': 'lasagna',
+            'mozzarella': 'mozzarella',
+            'halloumi': 'halloumi cheese',
+            'nudlar': 'noodles',
+            'wok': 'stir fry',
+            'burgare': 'hamburger',
+            'ryggbiff': 'sirloin steak',
+            'oxfilé': 'beef tenderloin',
+            'lövbiff': 'minute steak',
+            'högrev': 'chuck roast',
+            'stek': 'steak',
+            'kalops': 'beef stew',
+            'moussaka': 'moussaka',
+            'sjömansbiff': 'beef and potato stew',
+            'kroketter': 'croquettes',
+            'fiskpinnar': 'fish sticks',
+            'wallenbergare': 'veal patties',
+            'järpar': 'meat patties',
+            'lapskojs': 'potato and beef stew',
+            'makaroner': 'macaroni',
+            'pasta': 'pasta'
           };
-          for (const [sv, en] of Object.entries(dict)) {
-              translated = translated.replace(new RegExp(sv, 'gi'), en);
+
+          // Sortera efter längd så att längre ord (t.ex. köttfärssås) ersätts före kortare (t.ex. köttfärs)
+          const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+
+          for (const sv of sortedKeys) {
+              translated = translated.replace(new RegExp(sv, 'gi'), dict[sv]);
           }
+          
           let context = "delicious food plate";
           if(collection === "Soppor") context = "creamy soup in a bowl";
           else if(collection === "Spaghetti- & pastarätter") context = "pasta dish in a deep plate";
 
+          // Skapa en "seed" baserat på namnet, så AI:n alltid ritar EXAKT samma bild för samma rätt!
+          let seed = 0;
+          for (let i = 0; i < name.length; i++) {
+            seed = name.charCodeAt(i) + ((seed << 5) - seed);
+          }
+          seed = Math.abs(seed);
+
           const prompt = `Professional food photography of ${translated}, ${context}, appetizing, realistic, highly detailed, restaurant plating, absolutely no text, no letters, no watermark`;
-          return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true`;
+          return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true&seed=${seed}`;
         };
 
         const RobotLogo = () => (
@@ -809,19 +888,19 @@
 
             return (
               <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
                 onClick={() => setShowAddModal(false)}
               >
                 <div 
-                  className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
                     <h2 className="text-xl font-bold text-slate-800">Skapa nytt recept</h2>
                     <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20} /></button>
                   </div>
                   
-                  <div className="p-6 space-y-6 bg-slate-50/50">
+                  <div className="p-6 space-y-6 bg-slate-50/50 overflow-y-auto flex-1">
                     
                     <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
                       <div>
@@ -887,7 +966,7 @@
                     </div>
                   </div>
                   
-                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 sticky bottom-0">
+                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 flex-shrink-0">
                     <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-semibold">Avbryt</button>
                     <button onClick={handleSave} disabled={!formData.name} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50"><Save size={18} /> Spara</button>
                   </div>
@@ -905,19 +984,26 @@
 
             return (
               <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
                 onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }}
               >
                 <div 
-                  className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8 overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative"
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 relative"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="p-6 relative">
-                    <button onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full p-2 z-20"><X size={20} /></button>
+                  <div className="p-4 sm:p-6 relative">
+                    <div className="absolute top-4 right-4 flex gap-2 z-20">
+                      <button onClick={() => { deleteRecipe(recipe.id); setSelectedRecipeId(null); }} className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded-full p-2 transition-colors" title="Ta bort recept">
+                        <Trash2 size={20} />
+                      </button>
+                      <button onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }} className="text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition-colors">
+                        <X size={20} />
+                      </button>
+                    </div>
                     
-                    <div className="pr-10 mb-6">
+                    <div className="pr-20 mb-6 mt-2">
                       <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{recipe.collection}</span>
-                      <h2 className="text-3xl font-extrabold text-slate-800 leading-tight mb-3">{recipe.name}</h2>
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight mb-3">{recipe.name}</h2>
                       
                       <div className="w-full h-48 sm:h-64 bg-slate-100 rounded-2xl mb-4 overflow-hidden shadow-inner relative">
                         {imgLoading && (
