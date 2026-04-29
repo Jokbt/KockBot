@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="KockBot">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%2310B981'/%3E%3Cpath d='M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z' fill='%23ffffff'/%3E%3Cpath d='M35 40 L65 40 L65 52 L35 52 Z' fill='%23ffffff'/%3E%3Crect x='48' y='4' width='4' height='15' fill='%2394A3B8'/%3E%3Ccircle cx='50' cy='4' r='4' fill='%23F87171'/%3E%3Crect x='25' y='52' width='50' height='35' rx='8' fill='%23F1F5F9' stroke='%23cbd5e1' stroke-width='2'/%3E%3Ccircle cx='38' cy='65' r='5' fill='%231E293B'/%3E%3Ccircle cx='62' cy='65' r='5' fill='%231E293B'/%3E%3Ccircle cx='30' cy='72' r='3' fill='%23FCA5A5' opacity='0.6'/%3E%3Ccircle cx='70' cy='72' r='3' fill='%23FCA5A5' opacity='0.6'/%3E%3Cpath d='M 40 75 Q 50 80 60 75' stroke='%231E293B' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
-    <link rel="manifest" href='data:application/manifest+json;utf8,{"name":"KockBot - Smart Matsedel","short_name":"KockBot","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#10b981","icons":[{"src":"data:image/svg+xml,%3Csvg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%2310B981\"/%3E%3Cpath d=\"M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z\" fill=\"%23ffffff\"/%3E%3Cpath d=\"M35 40 L65 40 L65 52 L35 52 Z\" fill=\"%23ffffff\"/%3E%3Crect x=\"48\" y=\"4\" width=\"4\" height=\"15\" fill=\"%2394A3B8\"/%3E%3Ccircle cx=\"50\" cy=\"4\" r=\"4\" fill=\"%23F87171\"/%3E%3Crect x=\"25\" y=\"52\" width=\"50\" height=\"35\" rx=\"8\" fill=\"%23F1F5F9\" stroke=\"%23cbd5e1\" stroke-width=\"2\"/%3E%3Ccircle cx=\"38\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"62\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"30\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Ccircle cx=\"70\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Cpath d=\"M 40 75 Q 50 80 60 75\" stroke=\"%231E293B\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\"/%3E%3C/svg%3E","sizes":"192x192 512x512","type":"image/svg+xml"}]}'>
+    <link rel="manifest" href='data:application/manifest+json;utf8,{"name":"KockBot - Smart Matsedel","short_name":"KockBot","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#10b981","icons":[{"src":"data:image/svg+xml,%3Csvg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%2310B981\"/%3E%3Cpath d=\"M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z\" fill=\"%23ffffff\"/%3E%3Cpath d=\"M35 40 L65 40 L65 52 L35 52 Z\" fill=\"%23ffffff\"/%3E%3Crect x=\"48\" y=\"4\" width=\"4\" height=\"15\" fill=\"%2394A3B8\"/%3E%3Ccircle cx=\"50\" cy=\"4\" r=\"4\" fill=\"%23F87171\"/%3E%3Crect x=\"25\" y=\"52\" width=\"50\" height=\"35\" rx=\"8\" fill=\"%23F1F5F9\" stroke=\"%23cbd5e1\" stroke-width=\"2\"/%3E%3Ccircle cx=\"38\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"62\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"30\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Ccircle cx=\"70\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Cpath d=\"M 40 75 Q 50 80 60 75\" stroke=\"%231E293B\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\"/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}'>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,7 +40,7 @@
         
         const { 
           Calendar, ShoppingCart, BookOpen, RefreshCw, ChefHat, Info, 
-          X, CalendarDays, Plus, Upload, Trash2, Save, 
+          X, CalendarDays, Plus, Upload, Trash2, Save, Users,
           Loader2, CheckCircle2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download
         } = Lucide;
 
@@ -108,7 +108,6 @@
         const getRecipeImage = (name, collection) => {
           let translated = name.toLowerCase();
           
-          // Utökad och förbättrad ordlista
           const dict = {
             'rosépeppargryta': 'creamy pink peppercorn stew',
             'rosépeppar': 'pink peppercorn',
@@ -194,9 +193,7 @@
             'pasta': 'pasta'
           };
 
-          // Sortera efter längd så att längre ord (t.ex. köttfärssås) ersätts före kortare (t.ex. köttfärs)
           const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
-
           for (const sv of sortedKeys) {
               translated = translated.replace(new RegExp(sv, 'gi'), dict[sv]);
           }
@@ -205,7 +202,6 @@
           if(collection === "Soppor") context = "creamy soup in a bowl";
           else if(collection === "Spaghetti- & pastarätter") context = "pasta dish in a deep plate";
 
-          // Skapa en "seed" baserat på namnet, så AI:n alltid ritar EXAKT samma bild för samma rätt!
           let seed = 0;
           for (let i = 0; i < name.length; i++) {
             seed = name.charCodeAt(i) + ((seed << 5) - seed);
@@ -237,7 +233,7 @@
         const C_Po = 'Potatisrätter';
 
         const RAW_RECIPES = [
-          // 28 PASTARÄTTER FRÅN PDF:
+          // PASTARÄTTER:
           ['pasta_1', 'Pasta carbonara', 'kött', C_P, '20 min', [['Spaghetti',500,'g'],['Pancetta',180,'g'],['Äggulor',4,'st'],['Pecorinoost',2,'dl'],['Svartpeppar',1,'krm']], '1. Koka upp vatten i en kastrull. Salta vattnet ordentligt.\n2. Stek pancettan i en stekpanna.\n3. Riv generöst med ost och lägg i en skål.\n4. Separera äggulorna och häll gulorna i skålen med osten. Rör runt. Ha i lite svartpeppar.\n5. Koka spaghettin enligt anvisning. Behåll ca 2 dl av pastavattnet.\n6. Dra av stekpannan från plattan. Häll över pastan i stekpannan med pancettan och vänd runt.\n7. Ha i lite pastavatten i skålen med ägg/ost och rör runt. Häll sedan över detta i stekpannan och rör runt.\n8. Salta, peppra och toppa med extra parmesan!'],
           ['pasta_2', 'Spaghetti och köttfärssås', 'kött', C_P, '30 min', [['Blandfärs',500,'g'],['Spaghetti',500,'g'],['Smör',2,'msk'],['Vitlöksklyftor',2,'st'],['Gul lök',1,'st'],['Köttbuljongtärning',1,'st'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Tomatpuré',3,'msk'],['Sambal oelek',1,'tsk'],['Oregano',1,'msk'],['Basilika',1,'msk']], '1. Koka upp saltat vatten.\n2. Skala och finhacka vitlök och gul lök. Stek i smör.\n3. Häll ner blandfärsen och stek. Krydda med salt, peppar och paprikakrydda.\n4. Ha i tomatpuré och sambal oelek.\n5. Tillsätt grädden och köttbuljong, koka upp.\n6. Krydda med basilika och oregano. Koka spaghettin och servera med såsen.'],
           ['pasta_3', 'Spaghetti och kycklingfärssås', 'kyckling', C_P, '30 min', [['Kycklingfärs',500,'g'],['Spaghetti',500,'g'],['Vitlöksklyftor',2,'st'],['Gul lök',1,'st'],['Grönsaksbuljongtärning',1,'st'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Tomatpuré',3,'msk'],['Sambal oelek',1,'tsk']], '1. Finhacka lök och vitlök, stek i smör.\n2. Häll ner kycklingfärsen och stek. Salta och peppra.\n3. Tillsätt tomatpuré och sambal oelek.\n4. Häll i grädde och grönsaksbuljong, koka upp. Krydda med basilika/oregano.\n5. Koka spaghettin och servera med såsen och parmesan.'],
@@ -267,7 +263,7 @@
           ['pasta_27', 'Pasta mascarpone med citron och spenat', 'veg', C_P, '20 min', [['Pasta',4,'port'],['Mascarpone',150,'g'],['Citron',1,'st'],['Vitlöksklyfta',1,'st'],['Riven parmesan',2,'dl'],['Babyspenat',70,'g']], '1. Koka pastan. Riv citronzest.\n2. Krossa vitlöken och stek hastigt i olja/smör.\n3. Tillsätt mascarpone och parmesan i pannan och låt smälta. Smaksätt med citronsaft, zest, salt och peppar.\n4. Plocka upp vitlöksklyftan.\n5. Vänd ner pasta och några matskedar pastavatten, låt koka ihop. Rör i spenat på slutet.\n6. Toppa med extra parmesan, peppar och olivolja.'],
           ['pasta_28', 'Pad thai', 'kyckling', C_P, '35 min', [['Kycklingfiléer',3,'st'],['Risnudlar',300,'g'],['Gul lök',2,'st'],['Fisksås',1,'msk'],['Ostronsås',1.5,'msk'],['Kinesisk soja',0.5,'msk'],['Lime',0.5,'st'],['Chilifrukter',2,'st'],['Ägg',2,'st'],['Groddar',2.5,'dl']], '1. Koka nudlarna.\n2. Strimla och fräs kycklingen och grovhackad lök i wokpanna.\n3. Blanda sås: vatten, pressad lime, soja, ostronsås, fisksås, socker, pressad vitlök och finhackad chili.\n4. Vänd ner nudlar och groddar i pannan. Häll över såsen och fräs.\n5. Knäck i äggen, rör runt tills de stannat.\n6. Servera med koriander och krossade jordnötter.'],
           
-          // 7 SOPPOR FRÅN PDF:
+          // SOPPOR:
           ['soppa_1', 'Pastasoppa', 'kött', C_S, '20 min', [['Bacon',200,'g'],['Gul lök',1,'st'],['Morötter',3,'st'],['Smör',1,'msk'],['Hönsbuljong',1,'liter'],['Pasta',4,'port'],['Tomatpuré',2,'msk'],['Crème fraiche',2,'dl']], '1. Skär baconet i små tärningar. Skala lök och morötter och skär i små bitar.\n2. Fräs fläsk och grönsaker i smör i en gryta. Häll på buljongen och låt det koka upp.\n3. Lägg i pastan och krydda med tomatpuré, basilika, oregano och peppar. Låt soppan koka i ca 10 min. Rör ner 1 dl crème fraiche.\n4. Servera soppan med en klick crème fraiche.'],
           ['soppa_2', 'Potatissoppa med bacon', 'kött', C_S, '25 min', [['Potatis',800,'g'],['Purjolök',1,'st'],['Vatten',0.5,'L'],['Köttbuljongtärningar',2,'st'],['Vispgrädde',2,'dl'],['Bacon',2,'förp']], '1. Skala och tärna potatisen. Ansa och skiva purjolöken. Fräs purjolöken i smör i 2-3 minuter. Tillsätt potatisen.\n2. Häll på vatten och fond. Låt koka upp och koka på medelvärme tills potatisen är mjuk, ca 10 minuter.\n3. Skär baconet i mindre bitar, stek baconet och låt rinna av på hushållspapper.\n4. Ta kastrullen från värmen. Mosa eller mixa potatisen lite lätt med stavmixer. Häll i grädden och låt soppan bli varm.\n5. Servera soppan med bacon.'],
           ['soppa_3', 'Köttfärs- och potatissoppa', 'kött', C_S, '35 min', [['Gul lök',1,'st'],['Vitlök',1,'klyfta'],['Blandfärs',500,'g'],['Tomatpuré',3,'msk'],['Köttbuljongtärningar',2,'st'],['Vatten',8,'dl'],['Potatis',8,'st'],['Morötter',4,'st']], '1. Skala och hacka lök och vitlök. Fräs löken glansig i matfett i en rejäl gryta.\n2. Värm matfett i en stekpanna och fräs färsen.\n3. Blanda ner tomatpuré och häll över blandningen i grytan.\n4. Lägg i buljongtärningar och häll på vatten. Låt koka på svag värme.\n5. Skala potatisen, skär i bitar och lägg i grytan. Koka i 15-20 minuter.\n6. Skala och skär morötterna i skivor och låt koka med i ca 5 minuter.'],
@@ -276,7 +272,7 @@
           ['soppa_6', 'Lasagnesoppa', 'kött', C_S, '35 min', [['Nötfärs',500,'g'],['Gul lök',2,'st'],['Vitlöksklyftor',5,'st'],['Krossade tomater',390,'g'],['Vatten',5,'dl'],['Köttbuljongtärningar',2,'st'],['Lasagneplattor',10,'st'],['Vispgrädde',2,'dl'],['Mozzarella (riven)',3,'dl'],['Ricotta',250,'g']], '1. Börja med att fräsa hackad lök och vitlök. När de fått färg, tillsätt köttfärs och alla torra kryddor. Stek tills färsen fått fin yta.\n2. Fräs med tomatpurén i några minuter. Tillsätt krossad tomat, vatten, köttbuljong och lagerblad. Låt puttra i 10 minuter.\n3. Bryt ner lasagneplattorna och häll i vispgrädden. Tillsätt mer vatten om det behövs. Koka tills lasagneplattorna mjuknat.\n4. Rör ner mozzarella och färsk basilika.\n5. Ricottaröra: Blanda ricotta, parmesan, salt och peppar i en skål.\n6. Servera soppan toppad med ricottaröran.'],
           ['soppa_7', 'Mild tomatsoppa med salsiccia', 'kött', C_S, '15 min', [['Färdig mild tomatsoppa',1,'liter'],['Körsbärstomater',150,'g'],['Salsiccia',200,'g'],['Smör',1,'msk'],['Mozzarella',1,'st']], '1. Halvera tomaterna. Skiva korven. Lägg undan några korvskivor till garnering.\n2. Bryn korven i smör i en kastrull.\n3. Häll på soppan och värm under omrörning.\n4. Toppa soppan med resten av korven, tomaterna, citronskal och riven mozzarella eller bitar av hel mozzarella.'],
 
-          // 29 POTATISRÄTTER FRÅN SENASTE PDF:
+          // POTATISRÄTTER:
           ['potatis_1', 'Panerad fisk och potatis med kall sås', 'fisk', C_Po, '30 min', [['Panerad fisk',1,'förp'],['Potatis',12,'st'],['Crème fraiche',2,'dl'],['Gräddfil',2,'dl'],['Vitlöksklyftor',3,'st'],['Citronjuice',2,'tsk'],['Rödlök',0.5,'st'],['Majonnäs',1,'msk'],['Dijonsenap',1,'msk'],['Dill',1,'knippe']], '1. Koka potatisen efter anvisningar.\n2. Stek den panerade fisken i smör/olja (eller i ugnen).\n3. Blanda ihop såserna: Fannys sås (1 dl crème fraiche, 1 dl gräddfil, vitlök, citron, salt/peppar, dill) och Jonas sås (1 dl crème fraiche, 1 dl gräddfil, rödlök, majonnäs, senap, dill).\n4. Servera!'],
           ['potatis_2', 'Krispig torsk i ugn med potatis', 'fisk', C_Po, '35 min', [['Torskfilé',750,'g'],['Salt',1.5,'tsk'],['Svartpeppar',0.5,'tsk'],['Citronskal',0.5,'msk'],['Citronsaft',1,'msk'],['Olivolja',1,'dl'],['Dragon',1,'msk'],['Persilja (hackad)',2,'dl'],['Vitt bröd (hackat)',3,'dl'],['Lagrad ost (riven)',2,'dl'],['Körsbärstomater',300,'g'],['Potatis',4,'port']], '1. Värm ugnen till 170 grader varmluft.\n2. Lägg fisken i en smord form och gnid in med salt, peppar, citronskal och saft.\n3. Blanda olja, dragon, persilja, bröd och osten i en skål.\n4. Fördela blandningen över fiskbitarna. Lägg tomaterna bredvid.\n5. Tillaga mitt i ugnen 15-25 minuter (ca 52 grader inuti).\n6. Servera med pressad potatis.'],
           ['potatis_3', 'Fish and chips', 'fisk', C_Po, '25 min', [['Fish and crisp',1,'förp'],['Pommes frites',1,'förp'],['Remouladsås',1,'dl'],['Aioli',1,'dl']], '1. Tillaga fisken och pommes efter anvisning.\n2. Servera med remouladsås och aioli. Salta efter smak.'],
@@ -320,8 +316,13 @@
           
           const [user, setUser] = useState(null);
           const [isDbLoaded, setIsDbLoaded] = useState(false);
+
+          // Familjedelning
+          const [householdId, setHouseholdId] = useState(() => {
+            return localStorage.getItem('smartMatsedel_householdId') || '';
+          });
+          const [showShareModal, setShowShareModal] = useState(false);
           
-          // PWA Install State
           const [deferredPrompt, setDeferredPrompt] = useState(null);
           const [isIOS, setIsIOS] = useState(false);
           const [isStandalone, setIsStandalone] = useState(false);
@@ -331,13 +332,13 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
           
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v23');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v24');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
               localStorage.removeItem('smartMatsedel_mealPlan');
               localStorage.removeItem('smartMatsedel_planType');
               localStorage.removeItem('smartMatsedel_checkedListItems');
-              localStorage.setItem('smartMatsedel_cleared_v23', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v24', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
@@ -365,6 +366,15 @@
           const [isUploadingPdf, setIsUploadingPdf] = useState(false);
           const fileInputRef = useRef(null);
 
+          // Generera ett ID om det inte finns något
+          useEffect(() => {
+            if (!householdId) {
+              const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
+              setHouseholdId(newId);
+              localStorage.setItem('smartMatsedel_householdId', newId);
+            }
+          }, [householdId]);
+
           useEffect(() => {
             if (!auth) return;
             const initAuth = async () => {
@@ -381,10 +391,11 @@
             return () => unsubscribe();
           }, []);
 
+          // HÄR sker realtids-synkningen med Firebase
           useEffect(() => {
-            if (!user || !db) return;
+            if (!user || !db || !householdId) return;
             
-            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appState', 'main');
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
             const unsubscribe = onSnapshot(docRef, (docSnap) => {
               if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -392,6 +403,14 @@
                 if (data.mealPlan && data.mealPlan.length > 0) setMealPlan(data.mealPlan);
                 if (data.planType) setPlanType(data.planType);
                 if (data.checkedListItems) setCheckedListItems(data.checkedListItems);
+              } else {
+                // Om hushållet inte finns i molnet ännu, skapa det med nuvarande data!
+                setDoc(docRef, { 
+                  recipes,
+                  mealPlan,
+                  planType,
+                  checkedListItems
+                }, { merge: true }).catch(console.error);
               }
               setIsDbLoaded(true);
             }, (err) => {
@@ -400,12 +419,12 @@
             });
 
             return () => unsubscribe();
-          }, [user]);
+          }, [user, householdId]);
 
           const updateDb = async (updates) => {
-            if (!user || !db) return;
+            if (!user || !db || !householdId) return;
             try {
-              const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appState', 'main');
+              const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
               await setDoc(docRef, updates, { merge: true });
             } catch (err) {
               console.error("DB Save Error:", err);
@@ -418,11 +437,9 @@
           useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
 
           useEffect(() => {
-            // Kontrollera om användaren har iOS (iPhone/iPad)
             const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             setIsIOS(ios);
             
-            // Kontrollera om appen redan är installerad (gömmer knappen då)
             const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
             setIsStandalone(standalone);
 
@@ -439,8 +456,12 @@
               deferredPrompt.prompt();
               const { outcome } = await deferredPrompt.userChoice;
               if (outcome === 'accepted') setDeferredPrompt(null);
-            } else if (isIOS) {
-              showToast("På iPhone: Tryck på 'Dela'-ikonen i Safari (fyrkant med pil upp) i botten och välj 'Lägg till på hemskärmen'.");
+            } else {
+              if (isIOS) {
+                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten (fyrkant med pil) och välj 'Lägg till på hemskärmen'.");
+              } else {
+                showToast("På Android: Tryck på webbläsarens meny (tre prickar) och välj 'Lägg till på startskärmen'.");
+              }
             }
           };
 
@@ -490,7 +511,8 @@
             if (recipes.length === 0) return;
             
             const currentPlan = [...mealPlan];
-            const targetDay = currentPlan[index];
+            // Kopia för att inte ändra listan direkt utan att React fattar
+            const targetDay = { ...currentPlan[index] }; 
             const currentRecipeId = targetDay.recipe.id;
             
             let candidates = recipes.filter(r => r.protein === targetDay.recipe.protein && r.id !== currentRecipeId);
@@ -499,6 +521,7 @@
 
             const randomIdx = Math.floor(Math.random() * candidates.length);
             targetDay.recipe = candidates[randomIdx];
+            currentPlan[index] = targetDay;
             
             setMealPlan(currentPlan);
             updateDb({ mealPlan: currentPlan });
@@ -798,6 +821,60 @@
             );
           };
 
+          const ShareModal = () => {
+            const [joinCode, setJoinCode] = useState('');
+            
+            if (!showShareModal) return null;
+
+            const handleJoin = () => {
+              if(joinCode.trim().length > 0) {
+                  const code = joinCode.trim().toUpperCase();
+                  setHouseholdId(code);
+                  localStorage.setItem('smartMatsedel_householdId', code);
+                  setShowShareModal(false);
+                  showToast("Ansluten till nytt hushåll!");
+              }
+            };
+
+            const handleCopyCode = () => {
+              const textArea = document.createElement("textarea");
+              textArea.value = householdId;
+              document.body.appendChild(textArea);
+              textArea.select();
+              try { document.execCommand('copy'); showToast("Hushållskoden kopierades!"); } catch (err) {}
+              document.body.removeChild(textArea);
+            };
+
+            return (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowShareModal(false)}>
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Users className="text-emerald-600" /> Familjedelning</h2>
+                    <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20} /></button>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div className="bg-emerald-50 rounded-2xl p-5 text-center border border-emerald-100">
+                      <p className="text-sm font-semibold text-emerald-800 mb-2">Din hushållskod</p>
+                      <div className="text-3xl font-black text-emerald-600 tracking-widest mb-3">{householdId}</div>
+                      <button onClick={handleCopyCode} className="px-4 py-2 bg-white text-emerald-700 rounded-lg text-sm font-bold shadow-sm border border-emerald-200 flex items-center justify-center gap-2 mx-auto hover:bg-emerald-50 transition-colors">
+                        <Copy size={16} /> Kopiera kod
+                      </button>
+                      <p className="text-xs text-emerald-600 mt-4 leading-relaxed">Ge denna kod till din sambo så att ni delar samma matsedel och inköpslista i realtid.</p>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-6">
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Har du fått en kod?</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="T.ex. ABC123" className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none uppercase font-bold tracking-widest text-slate-700" maxLength={6} />
+                        <button onClick={handleJoin} disabled={!joinCode.trim()} className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50">Anslut</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
           const AddRecipeModal = () => {
             const [formData, setFormData] = useState({ name: '', protein: 'kött', collection: 'Spaghetti- & pastarätter', time: '30 min', ingredients: [{ name: '', amount: 1, unit: 'st' }], instructions: '' });
             const [isScanning, setIsScanning] = useState(false);
@@ -888,14 +965,15 @@
 
             return (
               <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
                 onClick={() => setShowAddModal(false)}
               >
                 <div 
-                  className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 flex flex-col animate-in fade-in zoom-in-95 duration-200"
+                  style={{ maxHeight: 'calc(100vh - 4rem)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0 rounded-t-3xl">
                     <h2 className="text-xl font-bold text-slate-800">Skapa nytt recept</h2>
                     <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20} /></button>
                   </div>
@@ -966,7 +1044,7 @@
                     </div>
                   </div>
                   
-                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 flex-shrink-0">
+                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 flex-shrink-0 rounded-b-3xl">
                     <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-semibold">Avbryt</button>
                     <button onClick={handleSave} disabled={!formData.name} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50"><Save size={18} /> Spara</button>
                   </div>
@@ -984,26 +1062,29 @@
 
             return (
               <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
                 onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }}
               >
                 <div 
-                  className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 relative"
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8 flex flex-col animate-in fade-in zoom-in-95 duration-200 relative"
+                  style={{ maxHeight: 'calc(100vh - 4rem)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="p-4 sm:p-6 relative">
-                    <div className="absolute top-4 right-4 flex gap-2 z-20">
-                      <button onClick={() => { deleteRecipe(recipe.id); setSelectedRecipeId(null); }} className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded-full p-2 transition-colors" title="Ta bort recept">
-                        <Trash2 size={20} />
-                      </button>
-                      <button onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }} className="text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full p-2 transition-colors">
-                        <X size={20} />
-                      </button>
+                  <div className="p-4 border-b border-slate-100 flex justify-end items-center bg-white flex-shrink-0 rounded-t-3xl absolute top-0 w-full z-20 bg-white/80 backdrop-blur-md">
+                    <div className="flex gap-2">
+                        <button onClick={() => { deleteRecipe(recipe.id); setSelectedRecipeId(null); }} className="text-red-400 hover:text-red-600 bg-white hover:bg-red-50 rounded-full p-2 transition-colors shadow-sm" title="Ta bort recept">
+                          <Trash2 size={20} />
+                        </button>
+                        <button onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }} className="text-slate-400 hover:text-slate-800 bg-white hover:bg-slate-100 rounded-full p-2 transition-colors shadow-sm">
+                          <X size={20} />
+                        </button>
                     </div>
-                    
-                    <div className="pr-20 mb-6 mt-2">
+                  </div>
+
+                  <div className="p-6 pt-16 overflow-y-auto flex-1">
+                    <div className="mb-6">
                       <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{recipe.collection}</span>
-                      <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight mb-3">{recipe.name}</h2>
+                      <h2 className="text-3xl font-extrabold text-slate-800 leading-tight mb-3">{recipe.name}</h2>
                       
                       <div className="w-full h-48 sm:h-64 bg-slate-100 rounded-2xl mb-4 overflow-hidden shadow-inner relative">
                         {imgLoading && (
@@ -1030,7 +1111,7 @@
                       </div>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-6 pb-6">
                       <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100/50">
                         <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-600"/> Ingredienser</h3>
                         <ul className="space-y-2.5">
@@ -1084,11 +1165,16 @@
                       </div>
                       <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
                       
-                      {(deferredPrompt || (isIOS && !isStandalone)) && (
-                        <button onClick={installApp} className="ml-4 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
-                          <Download size={14} /> Installera App
+                      <div className="flex items-center gap-2 ml-4">
+                        <button onClick={() => setShowShareModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-all border border-emerald-100 shadow-sm" title="Dela med familjen">
+                          <Users size={16} /> <span className="hidden sm:inline">Dela</span>
                         </button>
-                      )}
+                        {!isStandalone && (
+                          <button onClick={installApp} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> App
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="hidden md:flex bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
@@ -1105,7 +1191,6 @@
                         <Sparkles size={18} /> Inspiration
                       </button>
                     </div>
-                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight sm:hidden mr-auto pl-3">KockBot</h1>
                   </div>
                 </div>
               </header>
@@ -1217,7 +1302,7 @@
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
@@ -1392,6 +1477,7 @@
 
               <RecipeModal />
               <AddRecipeModal />
+              <ShareModal />
 
             </div>
           );
@@ -1400,18 +1486,6 @@
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
 
-        // Registrera en PWA Service Worker (Krävs för Android/Chrome)
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            try {
-              const swCode = `self.addEventListener('fetch', function() {});`;
-              const blob = new Blob([swCode], { type: 'application/javascript' });
-              navigator.serviceWorker.register(URL.createObjectURL(blob)).catch((err) => {
-                 console.log("ServiceWorker blockerad i vissa miljöer, men fungerar på GitHub Pages.");
-              });
-            } catch (e) { console.log('SW Error:', e); }
-          });
-        }
     </script>
 </body>
 </html>
