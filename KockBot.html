@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KockBot</title>
+    
+    <!-- PWA Meta Tags & Manifest -->
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="KockBot">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%2310B981'/%3E%3Cpath d='M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z' fill='%23ffffff'/%3E%3Cpath d='M35 40 L65 40 L65 52 L35 52 Z' fill='%23ffffff'/%3E%3Crect x='48' y='4' width='4' height='15' fill='%2394A3B8'/%3E%3Ccircle cx='50' cy='4' r='4' fill='%23F87171'/%3E%3Crect x='25' y='52' width='50' height='35' rx='8' fill='%23F1F5F9' stroke='%23cbd5e1' stroke-width='2'/%3E%3Ccircle cx='38' cy='65' r='5' fill='%231E293B'/%3E%3Ccircle cx='62' cy='65' r='5' fill='%231E293B'/%3E%3Ccircle cx='30' cy='72' r='3' fill='%23FCA5A5' opacity='0.6'/%3E%3Ccircle cx='70' cy='72' r='3' fill='%23FCA5A5' opacity='0.6'/%3E%3Cpath d='M 40 75 Q 50 80 60 75' stroke='%231E293B' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="manifest" href='data:application/manifest+json;utf8,{"name":"KockBot - Smart Matsedel","short_name":"KockBot","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#10b981","icons":[{"src":"data:image/svg+xml,%3Csvg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%2310B981\"/%3E%3Cpath d=\"M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z\" fill=\"%23ffffff\"/%3E%3Cpath d=\"M35 40 L65 40 L65 52 L35 52 Z\" fill=\"%23ffffff\"/%3E%3Crect x=\"48\" y=\"4\" width=\"4\" height=\"15\" fill=\"%2394A3B8\"/%3E%3Ccircle cx=\"50\" cy=\"4\" r=\"4\" fill=\"%23F87171\"/%3E%3Crect x=\"25\" y=\"52\" width=\"50\" height=\"35\" rx=\"8\" fill=\"%23F1F5F9\" stroke=\"%23cbd5e1\" stroke-width=\"2\"/%3E%3Ccircle cx=\"38\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"62\" cy=\"65\" r=\"5\" fill=\"%231E293B\"/%3E%3Ccircle cx=\"30\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Ccircle cx=\"70\" cy=\"72\" r=\"3\" fill=\"%23FCA5A5\" opacity=\"0.6\"/%3E%3Cpath d=\"M 40 75 Q 50 80 60 75\" stroke=\"%231E293B\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\"/%3E%3C/svg%3E","sizes":"192x192 512x512","type":"image/svg+xml"}]}'>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel för att kunna köra JSX i webbläsaren -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Map för React och externa bibliotek -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react"
+      }
+    }
+    </script>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import * as Lucide from 'lucide-react';
+        
+        const { 
+          Calendar, ShoppingCart, BookOpen, RefreshCw, ChefHat, Info, 
+          X, CalendarDays, Plus, Upload, Trash2, Save, 
+          Loader2, CheckCircle2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download
+        } = Lucide;
+
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        const apiKey = "";
+        let auth = null;
+        let db = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        try {
+          const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+          if (configStr) {
+            const config = JSON.parse(configStr);
+            if (Object.keys(config).length > 0) {
+              const app = initializeApp(config);
+              auth = getAuth(app);
+              db = getFirestore(app);
+            }
+          }
+        } catch (err) {
+          console.error("Kunde inte initiera databasen:", err);
+        }
+
+        const CATEGORY_CYCLE = ['kött', 'veg', 'fisk', 'kyckling', 'veg', 'kött', 'fisk'];
+        const DAYS = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
+
+        const BOOK_COLLECTIONS = [
+          'Alla',
+          'Spaghetti- & pastarätter',
+          'Potatisrätter',
+          'Risrätter',
+          'Soppor',
+          'Övriga vardagsrätter',
+          'Helgmat'
+        ];
+
+        const getISOWeekNumber = (date) => {
+          const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+          const dayNum = d.getUTCDay() || 7;
+          d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        };
+
+        const FALLBACK_IMAGES = [
+          "https://images.unsplash.com/photo-1495114752715-2c392c6c78a0?q=80&w=800&auto=format&fit=crop",
+          "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?q=80&w=800&auto=format&fit=crop",
+          "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=800&auto=format&fit=crop",
+          "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=800&auto=format&fit=crop",
+          "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=800&auto=format&fit=crop"
+        ];
+
+        const getFallbackImage = (id) => {
+           if (!id) return FALLBACK_IMAGES[0];
+           let hash = 0;
+           for (let i = 0; i < id.length; i++) {
+             hash = id.charCodeAt(i) + ((hash << 5) - hash);
+           }
+           return FALLBACK_IMAGES[Math.abs(hash) % FALLBACK_IMAGES.length];
+        };
+
+        const getRecipeImage = (name, collection) => {
+          let translated = name.toLowerCase();
+          const dict = {
+            'rosépeppar': 'pink peppercorn', 'rosépeppargryta': 'creamy pink peppercorn stew',
+            'fläskfilé': 'pork tenderloin', 'fläskytterfilé': 'pork loin', 'hasselbackspotatis': 'hasselback potatoes',
+            'kyckling': 'chicken', 'köttfärs': 'ground beef', 'nötfärs': 'ground beef', 'blandfärs': 'ground meat',
+            'köttbullar': 'meatballs', 'korvstroganoff': 'sausage stroganoff', 'korv': 'sausage',
+            'potatis': 'potatoes', 'klyftpotatis': 'potato wedges', 'mos': 'mashed potatoes', 'pommes': 'french fries',
+            'ris': 'rice', 'soppa': 'soup', 'gryta': 'stew', 'torsk': 'cod fish', 'lax': 'salmon',
+            'fisk': 'fish', 'räkor': 'shrimp', 'sås': 'sauce', 'gräddsås': 'cream sauce', 'ost': 'cheese',
+            'vitlök': 'garlic', 'lök': 'onion', 'tomat': 'tomato', 'grädde': 'cream', 'smörgåstårta': 'swedish sandwich cake',
+            'äggakaka': 'thick pancake', 'ugnspannkaka': 'oven baked pancake', 'pannkaka': 'pancakes',
+            'plättar': 'small pancakes', 'pirog': 'pastry', 'timjan': 'thyme', 'persilja': 'parsley',
+            'basilika': 'basil', 'svamp': 'mushrooms', 'champinjon': 'button mushrooms', 'spenat': 'spinach',
+            'gratäng': 'gratin', 'paj': 'pie', 'tacopaj': 'taco pie', 'tacos': 'tacos', 'kebab': 'kebab',
+            'köttfärssås': 'bolognese sauce', 'lasagne': 'lasagna', 'mozzarella': 'mozzarella', 'halloumi': 'halloumi cheese',
+            'nudlar': 'noodles', 'wok': 'stir fry', 'burgare': 'hamburger', 'stek': 'steak', 'ryggbiff': 'sirloin steak',
+            'oxfilé': 'beef tenderloin', 'lövbiff': 'minute steak', 'högrev': 'chuck roast', 'kalops': 'beef stew',
+            'moussaka': 'moussaka', 'sjömansbiff': 'beef and potato stew', 'kroketter': 'croquettes', 'fiskpinnar': 'fish sticks',
+            'wallenbergare': 'veal patties', 'järpar': 'meat patties', 'lapskojs': 'potato and beef stew'
+          };
+          for (const [sv, en] of Object.entries(dict)) {
+              translated = translated.replace(new RegExp(sv, 'gi'), en);
+          }
+          let context = "delicious food plate";
+          if(collection === "Soppor") context = "creamy soup in a bowl";
+          else if(collection === "Spaghetti- & pastarätter") context = "pasta dish in a deep plate";
+
+          const prompt = `Professional food photography of ${translated}, ${context}, appetizing, realistic, highly detailed, restaurant plating, absolutely no text, no letters, no watermark`;
+          return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true`;
+        };
+
+        const RobotLogo = () => (
+          <svg viewBox="0 0 100 100" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#10B981" />
+            <path d="M30 45 C20 45 20 25 35 25 C38 15 62 15 65 25 C80 25 80 45 70 45 Z" fill="#ffffff"/>
+            <path d="M35 40 L65 40 L65 52 L35 52 Z" fill="#ffffff"/>
+            <rect x="48" y="4" width="4" height="15" fill="#94A3B8"/>
+            <circle cx="50" cy="4" r="4" fill="#F87171"/>
+            <rect x="25" y="52" width="50" height="35" rx="8" fill="#F1F5F9" stroke="#cbd5e1" strokeWidth="2"/>
+            <circle cx="38" cy="65" r="5" fill="#1E293B"/>
+            <circle cx="62" cy="65" r="5" fill="#1E293B"/>
+            <circle cx="30" cy="72" r="3" fill="#FCA5A5" opacity="0.6"/>
+            <circle cx="70" cy="72" r="3" fill="#FCA5A5" opacity="0.6"/>
+            <path d="M 40 75 Q 50 80 60 75" stroke="#1E293B" strokeWidth="3" fill="none" strokeLinecap="round"/>
+          </svg>
+        );
+
+        const C_P = 'Spaghetti- & pastarätter';
+        const C_S = 'Soppor';
+        const C_Po = 'Potatisrätter';
+
+        const RAW_RECIPES = [
+          // 28 PASTARÄTTER FRÅN PDF:
+          ['pasta_1', 'Pasta carbonara', 'kött', C_P, '20 min', [['Spaghetti',500,'g'],['Pancetta',180,'g'],['Äggulor',4,'st'],['Pecorinoost',2,'dl'],['Svartpeppar',1,'krm']], '1. Koka upp vatten i en kastrull. Salta vattnet ordentligt.\n2. Stek pancettan i en stekpanna.\n3. Riv generöst med ost och lägg i en skål.\n4. Separera äggulorna och häll gulorna i skålen med osten. Rör runt. Ha i lite svartpeppar.\n5. Koka spaghettin enligt anvisning. Behåll ca 2 dl av pastavattnet.\n6. Dra av stekpannan från plattan. Häll över pastan i stekpannan med pancettan och vänd runt.\n7. Ha i lite pastavatten i skålen med ägg/ost och rör runt. Häll sedan över detta i stekpannan och rör runt.\n8. Salta, peppra och toppa med extra parmesan!'],
+          ['pasta_2', 'Spaghetti och köttfärssås', 'kött', C_P, '30 min', [['Blandfärs',500,'g'],['Spaghetti',500,'g'],['Smör',2,'msk'],['Vitlöksklyftor',2,'st'],['Gul lök',1,'st'],['Köttbuljongtärning',1,'st'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Tomatpuré',3,'msk'],['Sambal oelek',1,'tsk'],['Oregano',1,'msk'],['Basilika',1,'msk']], '1. Koka upp saltat vatten.\n2. Skala och finhacka vitlök och gul lök. Stek i smör.\n3. Häll ner blandfärsen och stek. Krydda med salt, peppar och paprikakrydda.\n4. Ha i tomatpuré och sambal oelek.\n5. Tillsätt grädden och köttbuljong, koka upp.\n6. Krydda med basilika och oregano. Koka spaghettin och servera med såsen.'],
+          ['pasta_3', 'Spaghetti och kycklingfärssås', 'kyckling', C_P, '30 min', [['Kycklingfärs',500,'g'],['Spaghetti',500,'g'],['Vitlöksklyftor',2,'st'],['Gul lök',1,'st'],['Grönsaksbuljongtärning',1,'st'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Tomatpuré',3,'msk'],['Sambal oelek',1,'tsk']], '1. Finhacka lök och vitlök, stek i smör.\n2. Häll ner kycklingfärsen och stek. Salta och peppra.\n3. Tillsätt tomatpuré och sambal oelek.\n4. Häll i grädde och grönsaksbuljong, koka upp. Krydda med basilika/oregano.\n5. Koka spaghettin och servera med såsen och parmesan.'],
+          ['pasta_4', 'Pasta Alfredo & Chicken Milanese', 'kyckling', C_P, '40 min', [['Kycklingbröstfiléer',4,'st'],['Ägg',4,'st'],['Vetemjöl',1,'dl'],['Panko',2,'dl'],['Vitlöksklyftor',4,'st'],['Tagliatelle',400,'g'],['Smör',60,'g'],['Parmesan',2,'dl']], '1. Dela och banka ut kycklingfiléerna platta.\n2. Panera i ordningen: mjöl, uppvispat ägg, panko.\n3. Hetta upp olja och vitlöksklyftor i en panna. Fritera kycklingen och lägg på galler.\n4. Koka tagliatellen i saltat vatten. Riv parmesan.\n5. Smält smör i en panna, tillsätt 2 dl pastavatten och pastan. Dra av från plattan, rör i parmesan.\n6. Servera pastan med den krispiga kycklingen.'],
+          ['pasta_5', 'Kycklingpasta med spenat och parmesan', 'kyckling', C_P, '20 min', [['Kycklinglårfilé',500,'g'],['Smör',2,'msk'],['Crème fraiche parmesan & vitlök',2,'dl'],['Babyspenat',65,'g'],['Pasta',500,'g']], '1. Koka pastan enligt anvisning.\n2. Skär kycklingen i bitar. Fräs i smör tills genomstekt, salta och peppra.\n3. Rör ner crème fraiche och koka ihop ca 5 min.\n4. Vänd ner spenaten och blanda såsen med pastan. Servera direkt!'],
+          ['pasta_6', 'Lasagne', 'kött', C_P, '50 min', [['Blandfärs',500,'g'],['Gul lök',1,'st'],['Krossade tomater',400,'g'],['Tomatpuré',2,'msk'],['Lasagneplattor',9,'st'],['Mjölk',7,'dl'],['Vetemjöl',3,'msk'],['Riven ost',3,'dl']], '1. Sätt ugnen på 225°.\n2. Fräs lök och vitlök i smör. Lägg i färsen och stek.\n3. Tillsätt tomater, puré, oregano och buljong. Koka 5 min.\n4. Sås: Vispa mjöl i hälften av mjölken i en kastrull. Häll i resten och koka upp under vispning i 3 min. Rör ner 2,5 dl ost.\n5. Varva färssås, ostsås och plattor i form. Avsluta med sås och sista osten. Grädda ca 30 min.'],
+          ['pasta_7', 'Kycklinglasagne', 'kyckling', C_P, '45 min', [['Kycklingfilé',300,'g'],['Lasagneplattor',12,'st'],['Gula lökar',2,'st'],['Vitlöksklyftor',4,'st'],['Babyspenat',300,'g'],['Cocktailtomater',200,'g'],['Mozzarella',2,'st'],['Riven ost',2,'dl'],['Smör',75,'g'],['Vetemjöl',2,'dl'],['Mjölk',1.5,'liter'],['Riven muskotnöt',1,'krm']], '1. Hacka lök, vitlök och kyckling. Halvera tomaterna.\n2. Fräs lök, kyckling och vitlök tills gyllene. Vänd i spenat, salta, peppra. Ställ åt sidan.\n3. Bechamelsås: Bryn smöret i kastrull, vispa i mjöl, tillsätt mjölk. Koka upp under omrörning. Krydda med muskot, salt och peppar. Rör ner 150g riven ost.\n4. Sätt ugnen på 200 grader.\n5. Varva bechamelsås, lasagneplattor och kycklingfyllning i en form. Avsluta med plattor, sås, mozzarella och tomater. Krydda med oregano.\n6. Grädda ca 45 min. Låt vila innan servering.'],
+          ['pasta_8', 'Pastagratäng med krämig mozzarella', 'kött', C_P, '45 min', [['Kokt pasta',8,'dl'],['Färskost',200,'g'],['Mozzarella',1,'förp'],['Blandfärs',500,'g'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Tomatpuré',2,'msk'],['Körsbärstomater',10,'st']], '1. Koka pastan. Sätt ugnen på 200°.\n2. Bryn lök, vitlök och köttfärs. Krydda med salt, peppar, basilika, puré och lite sambal.\n3. Ha i grädden och köttbuljong, koka upp.\n4. Rör ihop den varma pastan med färskosten. Blanda sedan med köttfärsröran och bred ut i en ugnsform.\n5. Fördela halverade tomater och mozzarella över. Gratinera tills gyllene.'],
+          ['pasta_9', 'Stuvade makaroner och köttbullar', 'kött', C_P, '30 min', [['Köttbullar',30,'st'],['Mjölk',10,'dl'],['Makaroner',5,'dl'],['Salt',0.5,'tsk']], '1. Koka upp mjölken i en nonstick kastrull.\n2. Tillsätt makaroner och salt. Koka under omrörning på svag värme ca 25 min tills mjuka.\n3. Smaka av med salt och peppar.\n4. Stek köttbullarna och servera!'],
+          ['pasta_10', 'Stuvade makaroner och falukorv', 'kött', C_P, '30 min', [['Falukorv',400,'g'],['Mjölk',10,'dl'],['Makaroner',5,'dl'],['Salt',0.5,'tsk']], '1. Koka upp mjölken i en nonstick kastrull.\n2. Tillsätt makaroner och salt. Koka under omrörning på svag värme ca 25 min.\n3. Skär falukorven i bitar och stek.\n4. Servera stuvningen med korven!'],
+          ['pasta_11', 'Tik Tok-pasta', 'veg', C_P, '25 min', [['Körsbärstomater',1,'förp'],['Färsk bladspenat',1,'förp'],['Vitlöksklyftor',2,'st'],['Crème fraiche tomat och basilika',2,'dl'],['Mozzarella',1,'st'],['Pasta',400,'g']], '1. Koka pastan enligt anvisning. Spara lite pastavatten.\n2. Dela tomaterna och hetta upp i en stekpanna.\n3. Pressa ner vitlök och lägg i spenaten. Rör runt.\n4. Ha i buljong, crème fraiche, mozzarellan i bitar och pastavattnet. Rör tills osten smält.\n5. Blanda i pastan och krydda!'],
+          ['pasta_12', 'Nudlar och kycklingwok', 'kyckling', C_P, '30 min', [['Kycklinglårfilé',600,'g'],['Japansk soja',4,'msk'],['Äggnudlar',250,'g'],['Röd paprika',1,'st'],['Minimajs',225,'g'],['Sockerärtor',100,'g'],['Oystersås',2,'msk'],['Sesamolja',1,'tsk']], '1. Dela kycklingen och marinera i majsstärkelse, 1 msk soja, chiliflakes och vitlök.\n2. Blanda såsen: 3 msk japansk soja, 1 msk kinesisk soja, oystersås, socker, sesamolja.\n3. Koka nudlarna al dente.\n4. Stek kycklingen på hög värme. Lägg åt sidan.\n5. Woka paprika, majs, sockerärtor. Vänd i kyckling, nudlar och sås. Värm ihop.'],
+          ['pasta_13', 'Fläskfilé pasta med spenat', 'kött', C_P, '35 min', [['Fläskfilé',500,'g'],['Babyspenat',120,'g'],['Soltorkade tomater i olja',8,'st'],['Vispgrädde',3,'dl'],['Crème fraîche',1,'dl'],['Färsk tagliatelle',400,'g']], '1. Fräs babyspenaten i smör. Lägg undan.\n2. Strimla filén, salta, peppra och stek runt om. Lägg åt sidan.\n3. Häll grädde i samma panna. Tillsätt hackad vitlök, strimlade tomater, crème fraiche, kycklingfond och spenaten. Låt puttra.\n4. Vänd ner köttet och basilika.\n5. Koka tagliatellen och blanda med såsen. Toppa med parmesan.'],
+          ['pasta_14', 'Pastasallad med kyckling', 'kyckling', C_P, '25 min', [['Pasta',400,'g'],['Kycklingbröstfiléer',4,'st'],['Körsbärstomater',1,'ask'],['Minimozzarella',125,'g'],['Crème fraîche',4,'dl'],['Örter provencale',2,'msk'],['Citronsaft',1,'msk']], '1. Koka pastan, sila och låt svalna.\n2. Skiva tomaterna och blanda ner i pastan.\n3. Bryn och genomstek kycklingen i bitar, salta/peppra.\n4. Blanda dressing: crème fraiche, örter, citron, salt, peppar.\n5. Blanda allt i en skål tillsammans med sallad och mozzarella.'],
+          ['pasta_15', 'Kyckling- och parmesanpasta', 'kyckling', C_P, '25 min', [['Kycklinglårfilé',4,'st'],['Spaghetti',400,'g'],['Matlagningsgrädde',2,'dl'],['Vispgrädde',1,'dl'],['Parmesan',1.5,'dl'],['Citronjuice',1,'msk']], '1. Stek kycklingen, krydda med salt, peppar, paprikapulver och vitlökspulver. Lägg undan.\n2. Använd samma panna: häll i grädde, parmesan, citronjuice. Salta/peppra. Red med lite maizena.\n3. Koka spaghettin.\n4. Häll spaghettin i såsen, blanda i kycklingen och servera med persilja.'],
+          ['pasta_16', 'Citronpasta', 'veg', C_P, '15 min', [['Pasta',400,'g'],['Smör',25,'g'],['Vitlöksklyfta',1,'st'],['Vispgrädde',2.5,'dl'],['Citronskal (finrivet)',2,'msk'],['Citronjuice',1,'msk'],['Riven parmesan',1,'dl']], '1. Bryn smöret. Fräs vitlöken 1 min.\n2. Häll i grädde, citronskal, citronjuice och parmesan. Låt puttra.\n3. Koka pastan al dente.\n4. Vänd ner pastan i såsen. Toppa med extra parmesan och svartpeppar.'],
+          ['pasta_17', 'Cacio e peppe', 'veg', C_P, '15 min', [['Pasta',500,'g'],['Parmesan',280,'g'],['Pecorino',120,'g'],['Smör',1,'msk'],['Svartpeppar',1,'msk']], '1. Mortla svartpepparn.\n2. Finriv all ost.\n3. Smält smör, lägg i pepparn och bryn tills smöret slutat bubbla.\n4. Koka pastan al dente i saltat vatten. Spara pastavatten!\n5. Häll 1-2 dl pastavatten i pepparsmöret. Lägg i pastan.\n6. Dra ned värmen, vänd ner osten i omgångar tills det blir en krämig sås.'],
+          ['pasta_18', 'Pestopasta med kyckling', 'kyckling', C_P, '20 min', [['Kycklinglårfilé',600,'g'],['Pesto',100,'g'],['Crème fraiche',2,'dl'],['Vispgrädde',1,'dl'],['Pasta',400,'g'],['Vitlöksklyftor',2,'st']], '1. Koka pastan.\n2. Tärna och stek kycklingen. Salta och peppra.\n3. Hacka i vitlök. Tillsätt några skedar pesto, grädde och crème fraiche. Koka upp.\n4. Smaka av med mer pesto, chilipulver, salt och peppar.\n5. Blanda ner pasta och parmesan. Servera.'],
+          ['pasta_19', 'Chorizopasta', 'kött', C_P, '25 min', [['Chorizo',400,'g'],['Krossade tomater',400,'g'],['Vispgrädde',2,'dl'],['Gul lök',1,'st'],['Chili',0.5,'st'],['Tomatpuré',1.5,'msk'],['Pasta',500,'g']], '1. Stek finhackad chili, vitlök och lök i olja.\n2. Slanta chorizon och stek med löken.\n3. Tillsätt puré och en smörklick, stek 2 min.\n4. Häll i tomater, paprikapulver, socker, salt, peppar. Puttra 10 min.\n5. Koka pastan under tiden.\n6. Tillsätt grädde i såsen, koka upp, vänd i pastan.'],
+          ['pasta_20', 'Krämig tomat gnocchi med burrata', 'veg', C_P, '25 min', [['Gnocchi',1,'förp'],['Olivolja',3,'msk'],['Körsbärstomater',250,'g'],['Tomatpuré',2,'msk'],['Vispgrädde',3,'dl'],['Gul lök',0.5,'st'],['Vitlöksklyftor',2,'st'],['Parmesan',2,'dl'],['Burrata',1,'st']], '1. Koka gnocchin al dente. Spara lite pastavatten.\n2. Värm olivolja och bryn hackad lök och vitlök. Tillsätt tomater, salt och peppar och tillaga 5-10 min.\n3. Kläm sönder några tomater med stekspaden. Tillsätt tomatpuré och fräs några minuter.\n4. Häll i vispgrädde och vänd i gnocchin. Späd med pastavatten.\n5. Rör i basilika, persilja och parmesan.\n6. Servera toppat med burrata och olivolja.'],
+          ['pasta_21', 'Tortellinigratäng', 'kött', C_P, '35 min', [['Köttfärs',500,'g'],['Tortellini',500,'g'],['Färskost',200,'g'],['Kalvfond',1,'msk'],['Tomatsås',400,'g'],['Riven ost',2,'dl']], '1. Sätt ugnen på 200 grader.\n2. Stek färsen och krydda med salt och peppar.\n3. Ha i färskost och rör tills den smält.\n4. Tillsätt kalvfond, tomatsås och okokt tortellini.\n5. Lägg över i ugnsform och toppa med riven ost.\n6. Grädda ca 10-15 minuter.'],
+          ['pasta_22', 'Krämig halloumipasta', 'veg', C_P, '20 min', [['Halloumi',2,'förp'],['Crème fraiche franska örter',2,'burk'],['Pasta',400,'g'],['Cocktailtomater',200,'g'],['Persilja',1,'kruka']], '1. Koka pastan enligt förpackningen.\n2. Tärna halloumin och stek i lite olja tills den fått fin färg. Lägg åt sidan.\n3. Halvera tomaterna. Häll crème fraiche och tomater i pannan. Låt koka ihop. Salta och peppra.\n4. Vänd ner hackad persilja, halloumi och pastan. Blanda ihop!'],
+          ['pasta_23', 'Pastagratäng med kyckling och pesto', 'kyckling', C_P, '40 min', [['Penne',800,'g'],['Kycklingfärs',400,'g'],['Gul lök',1,'st'],['Pastasås basilika',400,'g'],['Crème fraiche parmesan & vitlök',4,'dl'],['Pesto',190,'g'],['Vatten',1.5,'dl']], '1. Värm ugnen till 200 grader.\n2. Koka pastan (2 minuter kortare än anvisningen).\n3. Hacka löken. Bryn kycklingfärs och lök. Tillsätt pastasås och 1 dl vatten. Låt puttra 15 min.\n4. Vispa samman crème fraiche, pesto och 0.5 dl vatten.\n5. Varva pestosås, pasta och kycklingfärssås i en ugnsform. Avsluta med pestosås.\n6. Gratinera i ca 20 min.'],
+          ['pasta_24', 'Pasta Italiano', 'kött', C_P, '25 min', [['Spaghetti',400,'g'],['Salami',250,'g'],['Gul lök',1,'st'],['Vitlöksklyftor',2,'st'],['Paprikakrydda',2,'tsk'],['Dijonsenap',1,'msk'],['Krossade tomater',400,'g'],['Crème fraiche',2.5,'dl']], '1. Hacka och stek lök och vitlök mjuka i olivolja.\n2. Strimla salami och stek med löken. Klicka i senap och rör runt.\n3. Häll på krossade tomater och puttra 10 min. Koka pastan och spara 1 dl pastavatten.\n4. Rör i crème fraiche och puttra 5 min.\n5. Tillsätt pastavatten och puttra 5 min till. Vänd i pastan och toppa med ost.'],
+          ['pasta_25', 'Pasta med krämig ost- och skinksås', 'kött', C_P, '20 min', [['Pasta',4,'port'],['Gul lök',1,'st'],['Matlagningsgrädde',2.5,'dl'],['Mjölk',1.5,'dl'],['Majsstärkelse',2,'tsk'],['Kycklingbuljongtärning',1,'st'],['Rökt skinka',180,'g'],['Prästost (riven)',1.5,'dl'],['Tomater',3,'st']], '1. Koka pastan.\n2. Stek lök i smör i en stekpanna.\n3. Blanda grädde, mjölk och majsstärkelse. Häll i pannan. Smula ner buljongtärningen och koka upp.\n4. Rör i skinka och ost. Låt bli varmt.\n5. Skär tomater och klipp i gräslök.\n6. Servera pastan med såsen och tomaterna.'],
+          ['pasta_26', 'Drunken noodles med fläskytterfilé', 'kött', C_P, '30 min', [['Udonnudlar',300,'g'],['Fläskytterfilé',300,'g'],['Vitlöksklyftor',4,'st'],['Salladslökar',4,'st'],['Broccoli',1,'st'],['Ostronsås',1,'dl'],['Fisksås',2,'msk'],['Kinesisk soja',1,'msk'],['Strösocker',1,'msk']], '1. Koka nudlar, skölj kallt och låt rinna av.\n2. Mortla/pressa vitlök, tärna fläsket i munsbitar.\n3. Hetta upp en wok med olja, fräs vitlöken snabbt och i med fläsket tills gyllene.\n4. Fös fläsket åt sidan. Lägg i skivad salladslök och broccolistavar, fräs 1-2 min.\n5. Tillsätt nudlar, ostronsås, fisksås, soja och socker. Woka ihop tills allt är varmt.'],
+          ['pasta_27', 'Pasta mascarpone med citron och spenat', 'veg', C_P, '20 min', [['Pasta',4,'port'],['Mascarpone',150,'g'],['Citron',1,'st'],['Vitlöksklyfta',1,'st'],['Riven parmesan',2,'dl'],['Babyspenat',70,'g']], '1. Koka pastan. Riv citronzest.\n2. Krossa vitlöken och stek hastigt i olja/smör.\n3. Tillsätt mascarpone och parmesan i pannan och låt smälta. Smaksätt med citronsaft, zest, salt och peppar.\n4. Plocka upp vitlöksklyftan.\n5. Vänd ner pasta och några matskedar pastavatten, låt koka ihop. Rör i spenat på slutet.\n6. Toppa med extra parmesan, peppar och olivolja.'],
+          ['pasta_28', 'Pad thai', 'kyckling', C_P, '35 min', [['Kycklingfiléer',3,'st'],['Risnudlar',300,'g'],['Gul lök',2,'st'],['Fisksås',1,'msk'],['Ostronsås',1.5,'msk'],['Kinesisk soja',0.5,'msk'],['Lime',0.5,'st'],['Chilifrukter',2,'st'],['Ägg',2,'st'],['Groddar',2.5,'dl']], '1. Koka nudlarna.\n2. Strimla och fräs kycklingen och grovhackad lök i wokpanna.\n3. Blanda sås: vatten, pressad lime, soja, ostronsås, fisksås, socker, pressad vitlök och finhackad chili.\n4. Vänd ner nudlar och groddar i pannan. Häll över såsen och fräs.\n5. Knäck i äggen, rör runt tills de stannat.\n6. Servera med koriander och krossade jordnötter.'],
+          
+          // 7 SOPPOR FRÅN PDF:
+          ['soppa_1', 'Pastasoppa', 'kött', C_S, '20 min', [['Bacon',200,'g'],['Gul lök',1,'st'],['Morötter',3,'st'],['Smör',1,'msk'],['Hönsbuljong',1,'liter'],['Pasta',4,'port'],['Tomatpuré',2,'msk'],['Crème fraiche',2,'dl']], '1. Skär baconet i små tärningar. Skala lök och morötter och skär i små bitar.\n2. Fräs fläsk och grönsaker i smör i en gryta. Häll på buljongen och låt det koka upp.\n3. Lägg i pastan och krydda med tomatpuré, basilika, oregano och peppar. Låt soppan koka i ca 10 min. Rör ner 1 dl crème fraiche.\n4. Servera soppan med en klick crème fraiche.'],
+          ['soppa_2', 'Potatissoppa med bacon', 'kött', C_S, '25 min', [['Potatis',800,'g'],['Purjolök',1,'st'],['Vatten',0.5,'L'],['Köttbuljongtärningar',2,'st'],['Vispgrädde',2,'dl'],['Bacon',2,'förp']], '1. Skala och tärna potatisen. Ansa och skiva purjolöken. Fräs purjolöken i smör i 2-3 minuter. Tillsätt potatisen.\n2. Häll på vatten och fond. Låt koka upp och koka på medelvärme tills potatisen är mjuk, ca 10 minuter.\n3. Skär baconet i mindre bitar, stek baconet och låt rinna av på hushållspapper.\n4. Ta kastrullen från värmen. Mosa eller mixa potatisen lite lätt med stavmixer. Häll i grädden och låt soppan bli varm.\n5. Servera soppan med bacon.'],
+          ['soppa_3', 'Köttfärs- och potatissoppa', 'kött', C_S, '35 min', [['Gul lök',1,'st'],['Vitlök',1,'klyfta'],['Blandfärs',500,'g'],['Tomatpuré',3,'msk'],['Köttbuljongtärningar',2,'st'],['Vatten',8,'dl'],['Potatis',8,'st'],['Morötter',4,'st']], '1. Skala och hacka lök och vitlök. Fräs löken glansig i matfett i en rejäl gryta.\n2. Värm matfett i en stekpanna och fräs färsen.\n3. Blanda ner tomatpuré och häll över blandningen i grytan.\n4. Lägg i buljongtärningar och häll på vatten. Låt koka på svag värme.\n5. Skala potatisen, skär i bitar och lägg i grytan. Koka i 15-20 minuter.\n6. Skala och skär morötterna i skivor och låt koka med i ca 5 minuter.'],
+          ['soppa_4', 'Spenatsoppa', 'veg', C_S, '20 min', [['Hackad fryst spenat',450,'g'],['Smör',2,'msk'],['Vispgrädde',1,'dl'],['Vatten',1,'liter'],['Grönsaksbuljong',2,'tärningar'],['Ägg',4,'st']], '1. Värm upp den frysta spenaten tillsammans med smöret och ca. 2 dl av vattnet.\n2. Häll sedan i resterande mängd vatten och grönsaksbuljongen, koka upp.\n3. Koka äggen medelkokt/hårdkokt beroende på vad som gillas.\n4. Smaka av soppan med salt och peppar. Tillsätt ev. lite gräslök.\n5. Dra av kastrullen från plattan och tillsätt vispgrädde. Servera med halverade ägg.'],
+          ['soppa_5', 'Rostad tomatsoppa och vitlöksbröd', 'veg', C_S, '50 min', [['Kvisttomat',1000,'g'],['Vitlök',0.5,'st'],['Rödlökar',2,'st'],['Olivolja',2,'msk'],['Vatten',5,'dl'],['Grönsaksbuljong',2,'tärningar'],['Vispgrädde',2,'dl'],['Vitlöksbröd',1,'förp']], '1. Sätt ugnen på 200 grader.\n2. Skär tomaterna på hälften. Skala och skär löken i klyftor. Halvera vitlöken, behåll skalet på.\n3. Lägg allt i en form, ringla över olivolja. Lägg i vitlöken med snittytan uppåt.\n4. Rosta i ugnen 40-50 minuter tills grönsakerna fått färg.\n5. Koka upp vatten och buljong i en kastrull.\n6. Kläm ur den mjuka vitlöken och släng skalet.\n7. Lägg tomater, lök och vitlök i buljongen, koka i ett par minuter.\n8. Mixa soppan slät med stavmixer.\n9. Tillsätt grädden, mixa mer, smaka av med salt/peppar.\n10. Servera med vitlöksbröd, en klick gräddfil och basilika.'],
+          ['soppa_6', 'Lasagnesoppa', 'kött', C_S, '35 min', [['Nötfärs',500,'g'],['Gul lök',2,'st'],['Vitlöksklyftor',5,'st'],['Krossade tomater',390,'g'],['Vatten',5,'dl'],['Köttbuljongtärningar',2,'st'],['Lasagneplattor',10,'st'],['Vispgrädde',2,'dl'],['Mozzarella (riven)',3,'dl'],['Ricotta',250,'g']], '1. Börja med att fräsa hackad lök och vitlök. När de fått färg, tillsätt köttfärs och alla torra kryddor. Stek tills färsen fått fin yta.\n2. Fräs med tomatpurén i några minuter. Tillsätt krossad tomat, vatten, köttbuljong och lagerblad. Låt puttra i 10 minuter.\n3. Bryt ner lasagneplattorna och häll i vispgrädden. Tillsätt mer vatten om det behövs. Koka tills lasagneplattorna mjuknat.\n4. Rör ner mozzarella och färsk basilika.\n5. Ricottaröra: Blanda ricotta, parmesan, salt och peppar i en skål.\n6. Servera soppan toppad med ricottaröran.'],
+          ['soppa_7', 'Mild tomatsoppa med salsiccia', 'kött', C_S, '15 min', [['Färdig mild tomatsoppa',1,'liter'],['Körsbärstomater',150,'g'],['Salsiccia',200,'g'],['Smör',1,'msk'],['Mozzarella',1,'st']], '1. Halvera tomaterna. Skiva korven. Lägg undan några korvskivor till garnering.\n2. Bryn korven i smör i en kastrull.\n3. Häll på soppan och värm under omrörning.\n4. Toppa soppan med resten av korven, tomaterna, citronskal och riven mozzarella eller bitar av hel mozzarella.'],
+
+          // 29 POTATISRÄTTER FRÅN SENASTE PDF:
+          ['potatis_1', 'Panerad fisk och potatis med kall sås', 'fisk', C_Po, '30 min', [['Panerad fisk',1,'förp'],['Potatis',12,'st'],['Crème fraiche',2,'dl'],['Gräddfil',2,'dl'],['Vitlöksklyftor',3,'st'],['Citronjuice',2,'tsk'],['Rödlök',0.5,'st'],['Majonnäs',1,'msk'],['Dijonsenap',1,'msk'],['Dill',1,'knippe']], '1. Koka potatisen efter anvisningar.\n2. Stek den panerade fisken i smör/olja (eller i ugnen).\n3. Blanda ihop såserna: Fannys sås (1 dl crème fraiche, 1 dl gräddfil, vitlök, citron, salt/peppar, dill) och Jonas sås (1 dl crème fraiche, 1 dl gräddfil, rödlök, majonnäs, senap, dill).\n4. Servera!'],
+          ['potatis_2', 'Krispig torsk i ugn med potatis', 'fisk', C_Po, '35 min', [['Torskfilé',750,'g'],['Salt',1.5,'tsk'],['Svartpeppar',0.5,'tsk'],['Citronskal',0.5,'msk'],['Citronsaft',1,'msk'],['Olivolja',1,'dl'],['Dragon',1,'msk'],['Persilja (hackad)',2,'dl'],['Vitt bröd (hackat)',3,'dl'],['Lagrad ost (riven)',2,'dl'],['Körsbärstomater',300,'g'],['Potatis',4,'port']], '1. Värm ugnen till 170 grader varmluft.\n2. Lägg fisken i en smord form och gnid in med salt, peppar, citronskal och saft.\n3. Blanda olja, dragon, persilja, bröd och osten i en skål.\n4. Fördela blandningen över fiskbitarna. Lägg tomaterna bredvid.\n5. Tillaga mitt i ugnen 15-25 minuter (ca 52 grader inuti).\n6. Servera med pressad potatis.'],
+          ['potatis_3', 'Fish and chips', 'fisk', C_Po, '25 min', [['Fish and crisp',1,'förp'],['Pommes frites',1,'förp'],['Remouladsås',1,'dl'],['Aioli',1,'dl']], '1. Tillaga fisken och pommes efter anvisning.\n2. Servera med remouladsås och aioli. Salta efter smak.'],
+          ['potatis_4', 'Falukorv i ugn och mos', 'kött', C_Po, '40 min', [['Falukorv',1,'st'],['Potatis',15,'st'],['Ketchup',4,'msk'],['Senap',2,'msk'],['Rödlök',0.5,'st'],['Bostongurka',2,'msk'],['Tomat',1,'st'],['Riven ost',1,'förp'],['Mjölk',1,'dl']], '1. Sätt ugnen på 225 grader.\n2. Skär snitt i korven. Fördela ketchup, senap, lök, bostongurka och tomat i skårorna. Toppa med ost.\n3. In i ugnen ca 30 min.\n4. Koka potatis. Häll av vatten och mosa. Rör i mjölk, salt och peppar.'],
+          ['potatis_5', 'Kyckling och ugnsrostad potatis', 'kyckling', C_Po, '45 min', [['Kycklinglårfilé',4,'st'],['Potatis',15,'st'],['Vitlöksklyftor',2,'st'],['Soja',1,'msk'],['Honung',1,'msk'],['Bearnaisesås',1,'burk']], '1. Sätt ugnen på 225°C. \n2. Dela potatisen, blanda med olja, salt, peppar. Rosta i ugn ca 35 min.\n3. Stek kycklingen med krossad vitlök tills fin färg.\n4. Lägg kycklingen med potatisen i ugnen, pensla med soja och honung, krydda med timjan. Rosta 25 min till.\n5. Servera med bearnaisesås.'],
+          ['potatis_6', 'Wallenbergare och mos', 'kött', C_Po, '45 min', [['Kalvfärs',500,'g'],['Äggulor',3,'st'],['Vispgrädde',3,'dl'],['Ströbröd',1.5,'dl'],['Potatis',15,'st'],['Mjölk',2,'dl'],['Gröna ärtor',1,'förp'],['Lingonsylt',1,'burk']], '1. Blanda kall färs med salt och peppar. Tillsätt äggulor och grädde.\n2. Forma 8 biffar med blöta händer, vänd i ströbröd.\n3. Stek i smör 2 min per sida, sedan in i ugn (100°) tills 65 grader inuti.\n4. Koka potatis, mosa med mjölk och smör. Krydda.\n5. Servera med mos, ärtor, brynt smör och lingon.'],
+          ['potatis_7', 'Kycklingsbiffar och klyftpotatis med tzatziki', 'kyckling', C_Po, '40 min', [['Potatis',12,'st'],['Kycklingfärs',500,'g'],['Fetaost',1,'förp'],['Ägg',1,'st'],['Vitlöksklyftor',2,'st'],['Gurka',1,'st'],['Grekisk yoghurt',2,'dl']], '1. Sätt ugnen på 225°. Klyfta och rosta potatisen 25-30 min.\n2. Blanda kycklingfärs med smulad fetaost, ägg, riven vitlök och citronskal. Forma till biffar.\n3. Stek biffarna 3-4 min per sida (tills 70° inuti).\n4. Tzatziki: Riv gurkan, salta, krama ur vätska. Blanda med yoghurt och vitlök.'],
+          ['potatis_8', 'Pytt i panna', 'kött', C_Po, '25 min', [['Köttbullar',1,'förp'],['Korv',1,'förp'],['Potatis',10,'st'],['Smör',2,'msk']], '1. Skär köttbullar på mitten och dela korv i bitar.\n2. Koka potatisen och skär ner den.\n3. Stek allt i smör tills de fått fin färg.\n4. Smaksätt med salt, peppar och dill.'],
+          ['potatis_9', 'Tunnbrödsrulle', 'kött', C_Po, '30 min', [['Potatis',12,'st'],['Mjölk',1,'dl'],['Korv',8,'st'],['Tunnbröd',4,'st'],['Rostad lök',1,'dl'],['Skagenröra',1,'förp']], '1. Koka potatis, häll av och mosa. Rör i mjölk, salt, peppar och dill.\n2. Koka korven.\n3. Fördela mos, korv, rostad lök, ketchup, senap och skagenröra i tunnbröden. Rulla ihop.'],
+          ['potatis_10', 'Schnitzel och kroketter', 'kött', C_Po, '25 min', [['Schnitzel',1,'förp'],['Potatiskroketter',1,'påse'],['Bearnaisesås',1,'burk']], '1. Tillaga schnitzel och potatiskroketter enligt anvisningarna på förpackningarna.\n2. Servera med bearnaisesås.'],
+          ['potatis_11', 'Fiskpinnar och mos', 'fisk', C_Po, '25 min', [['Fiskpinnar',1,'förp'],['Potatis',12,'st'],['Mjölk',1,'dl'],['Remouladsås',1,'burk']], '1. Koka potatis, häll av och mosa. Rör i mjölk, smör, salt och peppar.\n2. Tillaga fiskpinnarna i ugn eller panna.\n3. Servera mos och fiskpinnar med remouladsås.'],
+          ['potatis_12', 'Stekt falukorv med stuvad spenat', 'kött', C_Po, '35 min', [['Falukorv',400,'g'],['Smör',2,'msk'],['Vetemjöl',1,'msk'],['Mjölk',5,'dl'],['Grädde',3,'msk'],['Grov senap',2,'msk'],['Stuvad spenat',200,'g'],['Potatis',12,'st']], '1. Koka potatisen.\n2. Senapssås: Fräs smör, pudra över mjöl, vispa i mjölk. Koka upp. Smaksätt med grädde, senap, salt och peppar.\n3. Skiva och stek falukorven.\n4. Värm spenaten. Servera korven med sås, spenat och potatis.'],
+          ['potatis_13', 'Kalops', 'kött', C_Po, '150 min', [['Nötkött',1000,'g'],['Morötter',4,'st'],['Gul lök',2,'st'],['Lagerblad',3,'st'],['Kalvfond',2,'msk'],['Kryddpepparkorn',5,'st'],['Majsstärkelse',1.5,'msk'],['Potatis',12,'st']], '1. Skär köttet i bitar. Bryn i smör i en gryta.\n2. Skär morötter och lök grovt. Tillsätt med lagerblad och kryddpeppar i grytan.\n3. Häll på vatten och fond. Sjud under lock ca 2-2,5 timmar tills mört.\n4. Red med majsstärkelse. Smaka av. Servera med kokt potatis.'],
+          ['potatis_14', 'Moussaka', 'kött', C_Po, '60 min', [['Potatis (kokta)',10,'st'],['Gul lök',2,'st'],['Köttfärs',400,'g'],['Tomatpuré',2,'msk'],['Vetemjöl',5,'msk'],['Mjölk',7,'dl'],['Riven ost',3,'dl']], '1. Färs: Fräs lök, vitlök och färs. Strö över 1 msk mjöl, späd med buljong och tomatpuré. Koka 10 min.\n2. Ostsås: Fräs smör med 4 msk mjöl, späd med mjölk. Koka 10 min, rör ner ost, salt, peppar.\n3. Skiva kokt potatis. Varva potatis, färs och ostsås i en ugnsform. \n4. Gratinera i ugn (250°) ca 30 min.'],
+          ['potatis_15', 'Hemmagjorda köttbullar med mos', 'kött', C_Po, '90 min', [['Blandfärs',500,'g'],['Ströbröd',0.5,'dl'],['Mjölk',1,'dl'],['Potatis',600,'g'],['Kalvfond',5,'dl'],['Vispgrädde',1,'dl'],['Svartvinbärsgelé',2,'msk']], '1. Blanda mjölk, ströbröd, ägg och brynt lök. Tillsätt färsen. Forma köttbullar.\n2. Sås: Fräs 1 msk mjöl i smör. Häll i kalvfond, koka. Sila av och smaksätt med gelé och soja.\n3. Mos: Koka potatis, mosa, tillsätt grädde/mjölk och smör.\n4. Stek köttbullarna och servera med mos, brunsås och lingon.'],
+          ['potatis_16', 'Kokt torsk med potatis och äggsås', 'fisk', C_Po, '30 min', [['Torskfilé',600,'g'],['Potatis',12,'st'],['Ägg',2,'st'],['Mjölk',3,'dl'],['Vetemjöl',1.5,'msk'],['Fiskbuljong',1,'liter']], '1. Hårdkoka äggen, skala, hacka.\n2. Äggsås: Vispa mjöl i mjölk, koka 3 min. Krydda, vänd i ägg och persilja.\n3. Koka upp buljongen, sjud torsken ca 3 min.\n4. Koka potatis. Servera fisken med äggsås och potatis.'],
+          ['potatis_17', 'Högrevsgryta med potatis', 'kött', C_Po, '120 min', [['Högrev',1200,'g'],['Potatis',12,'st'],['Morötter',2,'st'],['Rött vin',5,'dl'],['Sidfläsk',200,'g'],['Tomatpuré',4,'msk']], '1. Bryn köttbitar i olja, lägg i gryta.\n2. Fräs grova morötter, lök och vitlök i stekpanna. Tillsätt puré, mjöl och vin. Koka 5 min.\n3. Häll grönsaksröran och kalvfond över köttet, täck med vatten. Puttra 1-2 timmar.\n4. Stek sidfläsk (eller bacon) och tillsätt de sista 20 minuterna.\n5. Servera med potatis.'],
+          ['potatis_18', 'Köttfärslimpa med brunsås', 'kött', C_Po, '90 min', [['Blandfärs',900,'g'],['Potatis',12,'st'],['Ströbröd',1,'dl'],['Mjölk',3,'dl'],['Kalvfond',4,'dl'],['Vispgrädde',3,'dl'],['Svartvinbärsgelé',2,'msk']], '1. Sätt ugn på 100°. Blanda mjölk, ströbröd. Tillsätt ägg, brynt lök, senap och färs.\n2. Forma till limpa i smord form. Grädda 1,5 h till 72-75° inuti.\n3. Koka potatis och morötter.\n4. Sås: Fräs mjöl i smör, tillsätt buljong, grädde och gelé. Koka 5 min.\n5. Servera limpan med potatis och sås.'],
+          ['potatis_19', 'Lapskojs', 'kött', C_Po, '45 min', [['Mjölig potatis',1000,'g'],['Rimmad oxbringa',350,'g'],['Gul lök',1,'st'],['Smör',2,'msk'],['Lagerblad',2,'st']], '1. Koka potatisen.\n2. Hacka och svetta lök i smör. Lägg i oxbringan (i bitar) och köttsky samt kryddor. Koka tills köttet "kokar sönder" (ca 10 min).\n3. Stompa/pressa potatisen.\n4. Blanda potatis med kött och buljong, rör ner smör.\n5. Servera med stekta ägg och inlagda rödbetor.'],
+          ['potatis_20', 'Provencalsk kycklinggryta', 'kyckling', C_Po, '45 min', [['Kycklinglårfilé',800,'g'],['Vitlöksklyfta',1,'st'],['Vispgrädde',3,'dl'],['Kycklingfond',1.5,'msk'],['Sweet chilisås',0.5,'dl'],['Tomater',200,'g']], '1. Salta, peppra kyckling. Bryn i smör och lägg i gryta.\n2. Tillsätt vitlök, grädde, fond, chilisås, oregano, timjan och vatten i pannan, koka upp.\n3. Häll över kycklingen, puttra 30-35 min under lock.\n4. Vänd i tomater och citronsaft på slutet. Servera med potatis.'],
+          ['potatis_21', 'Fläskfilé med sås i ugnen', 'kött', C_Po, '40 min', [['Fläskytterfilé',800,'g'],['Vitlökspulver',2,'tsk'],['Vispgrädde',3,'dl'],['Crème fraiche',2,'dl'],['Kalvfond',2,'msk'],['Potatis',4,'port']], '1. Ugn 220 grader. Koka potatis.\n2. Gnid in kött med kryddor, stek för yta. Lägg i form, ugn 15 min.\n3. Sås: pressad vitlök, grädde, creme fraiche, fond, buljong. Koka upp.\n4. Skiva köttet, in i ugn 15 min till. Häll över sås och servera med potatis.'],
+          ['potatis_22', 'Fläskfilé med örtsmör', 'kött', C_Po, '50 min', [['Fläskfilé',600,'g'],['Potatis',900,'g'],['Haricots verts',150,'g'],['Bacon',140,'g'],['Smör',200,'g']], '1. Ugn 200 grader. Rosta skivad potatis 30 min.\n2. Örtsmör: Blanda smör med persilja, chili, vitlök, timjan, citronskal.\n3. Linda bacon runt bönorna. Stek fläskfilé till 65 grader inuti.\n4. Stek bönorna. Skiva kött över potatisen, klicka på smöret. Grilla (220) tills smöret smält.'],
+          ['potatis_23', 'Fläskfilé i sockerkaksform', 'kött', C_Po, '90 min', [['Fläskytterfilé',1000,'g'],['Vispgrädde',3,'dl'],['Crème fraiche',1,'dl'],['Svartvinbärsgelé',0.5,'dl'],['Soja',2,'msk'],['Potatis',4,'port']], '1. Sätt ugnen på 150 grader. Bryn köttet.\n2. Blanda grädde, creme fraiche, sambal oelek, gelé, soja, örtkrydda, vitlök och buljong. Koka upp.\n3. Lägg köttet i sockerkaksform, häll över sås. Ugn 70-90 min.\n4. Skiva köttet, häll köttsaften i såsen. Servera med potatis.'],
+          ['potatis_24', 'Potatis & köttfärsgratäng', 'kött', C_Po, '60 min', [['Köttfärs',500,'g'],['Gul lök',1,'st'],['Färskost',100,'g'],['Potatis',1000,'g'],['Riven ost',150,'g'],['Vispgrädde',3,'dl']], '1. Ugn 200 grader. Fräs lök/färs med tomatpuré och oregano. Rör i färskost.\n2. Skiva potatis tunt. Varva potatis, färs och ost.\n3. Häll över grädde och resten av osten. Ugn 50 min.'],
+          ['potatis_25', 'Kycklingfärsbiffar med ost', 'kyckling', C_Po, '45 min', [['Kycklingfärs',500,'g'],['Spetspaprika',0.5,'st'],['Gruyereost',50,'g'],['Crème fraiche',3,'dl'],['Klyftpotatis',4,'port']], '1. Ugn 225 för potatis. Stek lök och paprika.\n2. Blanda med färs, ägg, ost, kryddor. Forma biffar, stek till yta.\n3. Sås: Creme fraiche, honung, soja, timjan. Häll över biffarna i form.\n4. Ugn 15 min. Servera med potatis.'],
+          ['potatis_26', 'Köttfärsbiffar i färskostsås', 'kött', C_Po, '35 min', [['Crème Bonjour',200,'g'],['Vispgrädde',2,'dl'],['Köttfärs',500,'g'],['Ströbröd',0.5,'dl'],['Mjölk',1,'dl'],['Potatis',4,'port']], '1. Koka potatis. Stek hackad lök.\n2. Blanda ströbröd, mjölk, ägg, lök, färs, basilika. Forma och stek biffar.\n3. Sås: Smält Creme Bonjour med grädde i pannan. Sjud biffar i såsen 5-6 min.'],
+          ['potatis_27', 'Järpar i gräddsås och potatis', 'kött', C_Po, '45 min', [['Köttfärs',1000,'g'],['Ströbröd',1.5,'dl'],['Mjölk',2,'dl'],['Vispgrädde',3,'dl'],['Japansk soja',3,'msk'],['Potatis',8,'port']], '1. Ugn 200 grader. Blanda färs, ströbröd, mjölk, ägg, senap, lök, kryddor.\n2. Forma järpar. Bryn och lägg i form.\n3. Stek skivad lök med socker (karamelliserad) och lägg över.\n4. Sås: grädde, soja. Häll över. Ugn 30 min.'],
+          ['potatis_28', 'Parmesanbiffar i gräslökssås', 'kött', C_Po, '35 min', [['Nötfärs',500,'g'],['Parmesan',50,'g'],['Potatis',700,'g'],['Broccoli',1,'st'],['Vispgrädde',1.5,'dl'],['Gräslök',1,'knippe']], '1. Koka potatis och broccoli.\n2. Blanda färs, ägg, ost, salt, peppar. Stek biffar.\n3. Sås: Fräs lök, tillsätt grädde, fond, vinäger. Sjud biffar i 10 min.\n4. Smaksätt med gräslök och citron.'],
+          ['potatis_29', 'Torskrygg med gräslök, bacon', 'fisk', C_Po, '35 min', [['Torskrygg',4,'bitar'],['Vitt vin',1,'dl'],['Vispgrädde',3,'dl'],['Parmesan',1,'dl'],['Bacon',1,'pkt'],['Potatis',800,'g']], '1. Ugn 200 grader. Torsk i form.\n2. Sås: fräs lök, reducera vin, grädde, fond, senap, gräslök. Häll över fisken, toppa med ost, ugn 15 min.\n3. Krossa kokt potatis, smöra, parmesan, grilla 225.\n4. Knaperstek bacon och strö över.']
+        ];
+
+        const DEFAULT_RECIPES = RAW_RECIPES.map(r => ({
+          id: r[0], name: r[1], protein: r[2], collection: r[3], time: r[4],
+          ingredients: r[5].map(i => ({name: i[0], amount: i[1], unit: i[2]})),
+          instructions: r[6]
+        }));
+
+        function App() {
+          const [activeTab, setActiveTab] = useState('recipes'); 
+          const [toastMessage, setToastMessage] = useState(null);
+          
+          const [user, setUser] = useState(null);
+          const [isDbLoaded, setIsDbLoaded] = useState(false);
+          
+          const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+          const [inspirationQuery, setInspirationQuery] = useState('');
+          const [isGeneratingInspiration, setIsGeneratingInspiration] = useState(false);
+          const [inspiredRecipe, setInspiredRecipe] = useState(null);
+          
+          const [recipes, setRecipes] = useState(() => {
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v23');
+            if (!isCleared) {
+              localStorage.removeItem('smartMatsedel_recipes');
+              localStorage.removeItem('smartMatsedel_mealPlan');
+              localStorage.removeItem('smartMatsedel_planType');
+              localStorage.removeItem('smartMatsedel_checkedListItems');
+              localStorage.setItem('smartMatsedel_cleared_v23', 'true');
+              return DEFAULT_RECIPES;
+            }
+            const saved = localStorage.getItem('smartMatsedel_recipes');
+            return saved ? JSON.parse(saved) : DEFAULT_RECIPES;
+          });
+
+          const [planType, setPlanType] = useState(() => {
+            return localStorage.getItem('smartMatsedel_planType') || 'week';
+          }); 
+
+          const [mealPlan, setMealPlan] = useState(() => {
+            const saved = localStorage.getItem('smartMatsedel_mealPlan');
+            return saved ? JSON.parse(saved) : [];
+          });
+
+          const [checkedListItems, setCheckedListItems] = useState(() => {
+            const saved = localStorage.getItem('smartMatsedel_checkedListItems');
+            return saved ? JSON.parse(saved) : {};
+          });
+
+          const [selectedCollection, setSelectedCollection] = useState('Alla');
+          const [selectedRecipeId, setSelectedRecipeId] = useState(null);
+          
+          const [showAddModal, setShowAddModal] = useState(false);
+          const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+          const fileInputRef = useRef(null);
+
+          useEffect(() => {
+            if (!auth) return;
+            const initAuth = async () => {
+              try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                  await signInAnonymously(auth);
+                }
+              } catch(e) { console.error("Auth error:", e); }
+            };
+            initAuth();
+            const unsubscribe = onAuthStateChanged(auth, setUser);
+            return () => unsubscribe();
+          }, []);
+
+          useEffect(() => {
+            if (!user || !db) return;
+            
+            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appState', 'main');
+            const unsubscribe = onSnapshot(docRef, (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.recipes && data.recipes.length > 0) setRecipes(data.recipes);
+                if (data.mealPlan && data.mealPlan.length > 0) setMealPlan(data.mealPlan);
+                if (data.planType) setPlanType(data.planType);
+                if (data.checkedListItems) setCheckedListItems(data.checkedListItems);
+              }
+              setIsDbLoaded(true);
+            }, (err) => {
+              console.error("Firestore error:", err);
+              setIsDbLoaded(true);
+            });
+
+            return () => unsubscribe();
+          }, [user]);
+
+          const updateDb = async (updates) => {
+            if (!user || !db) return;
+            try {
+              const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appState', 'main');
+              await setDoc(docRef, updates, { merge: true });
+            } catch (err) {
+              console.error("DB Save Error:", err);
+            }
+          };
+
+          useEffect(() => { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); }, [recipes]);
+          useEffect(() => { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); }, [mealPlan]);
+          useEffect(() => { localStorage.setItem('smartMatsedel_planType', planType); }, [planType]);
+          useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
+
+          useEffect(() => {
+            const handleBeforeInstallPrompt = (e) => {
+              e.preventDefault();
+              setDeferredPrompt(e);
+            };
+            window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+          }, []);
+
+          const installApp = async () => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              if (outcome === 'accepted') setDeferredPrompt(null);
+            }
+          };
+
+          const showToast = (msg) => {
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(null), 4000);
+          };
+
+          const generatePlan = (type, availableRecipes = recipes) => {
+            if (availableRecipes.length === 0) {
+                showToast("Du måste lägga till minst ett recept.");
+                setActiveTab('recipes');
+                return;
+            }
+
+            const numDays = type === 'week' ? 7 : 28;
+            const newPlan = [];
+            
+            for (let i = 0; i < numDays; i++) {
+              const targetProtein = CATEGORY_CYCLE[i % CATEGORY_CYCLE.length]; 
+              
+              let candidates = availableRecipes.filter(r => r.protein === targetProtein);
+              if (candidates.length === 0) candidates = availableRecipes;
+
+              const randomIdx = Math.floor(Math.random() * candidates.length);
+              newPlan.push({
+                dayIndex: i,
+                dayName: DAYS[i % 7],
+                weekNumber: Math.floor(i / 7) + 1,
+                recipe: candidates[randomIdx]
+              });
+            }
+
+            setMealPlan(newPlan);
+            setPlanType(type);
+            setCheckedListItems({});
+            updateDb({ mealPlan: newPlan, planType: type, checkedListItems: {} });
+          };
+
+          useEffect(() => {
+            if (isDbLoaded && mealPlan.length === 0 && recipes.length > 0) {
+              generatePlan('week', recipes);
+            }
+          }, [isDbLoaded, recipes]);
+
+          const swapDayRecipe = (index) => {
+            if (recipes.length === 0) return;
+            
+            const currentPlan = [...mealPlan];
+            const targetDay = currentPlan[index];
+            const currentRecipeId = targetDay.recipe.id;
+            
+            let candidates = recipes.filter(r => r.protein === targetDay.recipe.protein && r.id !== currentRecipeId);
+            if (candidates.length === 0) candidates = recipes.filter(r => r.id !== currentRecipeId);
+            if (candidates.length === 0) candidates = recipes;
+
+            const randomIdx = Math.floor(Math.random() * candidates.length);
+            targetDay.recipe = candidates[randomIdx];
+            
+            setMealPlan(currentPlan);
+            updateDb({ mealPlan: currentPlan });
+          };
+
+          const deleteRecipe = (id) => {
+            const newRecipes = recipes.filter(r => r.id !== id);
+            setRecipes(newRecipes);
+            updateDb({ recipes: newRecipes });
+            showToast("Receptet togs bort.");
+          };
+
+          const fetchWithBackoff = async (url, options, maxRetries = 5) => {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < maxRetries; i++) {
+              try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(`HTTP error!`);
+                return await response.json();
+              } catch (error) {
+                if (i === maxRetries - 1) throw error;
+                await new Promise(res => setTimeout(res, delays[i]));
+              }
+            }
+          };
+
+          const handlePdfUpload = async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (file.type !== 'application/pdf') {
+              showToast("Endast PDF-filer stöds."); return;
+            }
+
+            setIsUploadingPdf(true);
+            showToast("Läser in PDF... (Detta tar ca 10 sekunder)");
+
+            try {
+              const reader = new FileReader();
+              reader.onloadend = async () => {
+                try {
+                  const base64Data = reader.result.split(',')[1];
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                  const promptText = `Extrahera recept från PDF. Svara ENDAST med giltig JSON-array. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.`;
+
+                  const payload = {
+                    contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
+                    generationConfig: { 
+                        temperature: 0.2, responseMimeType: "application/json", 
+                        responseSchema: {
+                          type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, protein: { type: "STRING" }, collection: { type: "STRING" }, time: { type: "STRING" }, ingredients: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, amount: { type: "NUMBER" }, unit: { type: "STRING" } }, required: ["name", "amount", "unit"] } }, instructions: { type: "STRING" } }, required: ["name", "protein", "collection", "time", "ingredients", "instructions"] }
+                        }
+                    }
+                  };
+
+                  const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                  const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                  const parsedRecipes = JSON.parse(rawText);
+                  const recipesWithIds = parsedRecipes.map(r => ({ ...r, id: 'pdf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) }));
+                  
+                  const newRecipes = [...recipes, ...recipesWithIds];
+                  setRecipes(newRecipes);
+                  updateDb({ recipes: newRecipes });
+                  showToast(`${recipesWithIds.length} recept importerades!`);
+                } catch (err) {
+                  showToast(`Fel vid import.`);
+                } finally {
+                  setIsUploadingPdf(false);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+              };
+              reader.readAsDataURL(file);
+            } catch (err) {
+              showToast("Ett fel uppstod."); setIsUploadingPdf(false);
+            }
+          };
+
+          const handleGenerateInspiration = async () => {
+            if (!inspirationQuery.trim()) {
+              showToast("Skriv in en råvara eller idé först!");
+              return;
+            }
+            setIsGeneratingInspiration(true);
+            setInspiredRecipe(null);
+            showToast("Kocken skapar ett nytt recept...");
+
+            try {
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+              const promptText = `
+                Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
+                Svara ENDAST med ett giltigt JSON-objekt. 
+                Objektet MÅSTE ha följande struktur och egenskaper:
+                {
+                  "name": "Namn på rätten",
+                  "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
+                  "collection": "Spaghetti- & pastarätter" ELLER "Potatisrätter" ELLER "Risrätter" ELLER "Soppor" ELLER "Övriga vardagsrätter" ELLER "Helgmat",
+                  "time": "t.ex. 30 min",
+                  "ingredients": [
+                    { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
+                  ],
+                  "instructions": "1. Gör så här...\\n2. Nästa steg..."
+                }
+              `;
+
+              const payload = {
+                contents: [{ role: "user", parts: [{ text: promptText }] }],
+                generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+              };
+
+              const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              const parsed = JSON.parse(rawText);
+              
+              setInspiredRecipe({ ...parsed, id: 'insp_' + Date.now() });
+              showToast("Receptet är klart!");
+            } catch (err) {
+              showToast("Kunde tyvärr inte skapa ett recept just nu. Försök igen.");
+            } finally {
+              setIsGeneratingInspiration(false);
+            }
+          };
+
+          const saveInspiredRecipe = () => {
+            if (!inspiredRecipe) return;
+            const newRecipes = [inspiredRecipe, ...recipes];
+            setRecipes(newRecipes);
+            updateDb({ recipes: newRecipes });
+            setInspiredRecipe(null);
+            setInspirationQuery('');
+            setActiveTab('recipes');
+            showToast("Det nya receptet sparades i din bok!");
+          };
+
+          const normalizeName = (name) => {
+            let n = name.toLowerCase().trim();
+            n = n.replace(/^(färska|färsk|finhackad|hackad|hackade|strimlad|strimlade|skivad|skivade|tärnad|tärnade|torkad|torkade|riven|rivna|hel|hela|gula|gul|röda|röd|gröna|grön|lätt)\s+/i, '');
+            n = n.replace(/\s*\(.*?\)/g, ''); 
+            n = n.trim();
+            if (n.match(/crème fraiche|creme fraiche|crème fraîche/i)) {
+               if (n.match(/tomat/i) && n.match(/basilika/i)) return 'Creme fraiche tomat basilika';
+               if (n.match(/parmesan/i) && n.match(/vitlök/i)) return 'Creme fraiche parmesan vitlök';
+               if (n.match(/örter/i)) return 'Creme fraiche franska örter';
+               if (n.match(/paprika/i) && n.match(/chili/i)) return 'Creme fraiche paprika chili';
+               return 'Creme fraiche';
+            }
+            if (n.match(/^grädde$|vispgrädde/i)) return 'Vispgrädde';
+            if (n.match(/matlagningsgrädde/i)) return 'Matlagningsgrädde';
+            if (n.match(/^mjölk/i)) return 'Mjölk';
+            if (n.match(/köttbuljong/i)) return 'Köttbuljong';
+            if (n.match(/grönsaksbuljong/i)) return 'Grönsaksbuljong';
+            if (n.match(/kycklingbuljong|hönsbuljong/i)) return 'Kycklingbuljong';
+            if (n.match(/kalvfond/i)) return 'Kalvfond';
+            if (n.match(/parmesan/i)) return 'Parmesanost';
+            if (n.match(/pecorino/i)) return 'Pecorinoost';
+            if (n.match(/mozzarella/i)) return 'Mozzarella';
+            if (n.match(/fetaost/i)) return 'Fetaost';
+            if (n.match(/riven ost|gratängost/i)) return 'Riven ost';
+            if (n.match(/kycklinglårfilé/i)) return 'Kycklinglårfilé';
+            if (n.match(/kycklingfilé|kycklingbröst/i)) return 'Kycklingfilé';
+            if (n.match(/blandfärs/i)) return 'Blandfärs';
+            if (n.match(/nötfärs|köttfärs/i)) return 'Nötfärs';
+            if (n.match(/kycklingfärs/i)) return 'Kycklingfärs';
+            if (n.match(/bacon/i)) return 'Bacon';
+            if (n.match(/falukorv/i)) return 'Falukorv';
+            if (n.match(/vitlök/i)) return 'Vitlök'; 
+            if (n.match(/^lök$|^lökar$/i)) return 'Gul lök';
+            if (n.match(/krossade tomater/i)) return 'Krossade tomater';
+            if (n.match(/tomatpuré/i)) return 'Tomatpuré';
+            if (n.match(/körsbärstomat|cocktailtomat/i)) return 'Körsbärstomater';
+            if (n.match(/^tomat$|^tomater$/i)) return 'Tomater';
+            if (n.match(/champinjon/i)) return 'Champinjoner';
+            if (n.match(/potatis/i) && !n.match(/söt|gratäng|mos|klyft/i)) return 'Potatis';
+            if (n.match(/äggulor|^ägg$/i)) return 'Ägg';
+            if (n.match(/smör/i) && !n.match(/jordnöt/i)) return 'Smör';
+            if (n.match(/olivolja/i)) return 'Olivolja';
+            if (n.match(/rapsolja|matolja/i)) return 'Rapsolja';
+            if (n.match(/vetemjöl/i)) return 'Vetemjöl';
+            if (n.match(/majsstärkelse|maizena/i)) return 'Majsstärkelse';
+            if (n.match(/soja|soya/i)) return 'Japansk soja';
+            if (n.match(/pancetta/i)) return 'Pancetta';
+            if (n.match(/salsiccia/i)) return 'Salsiccia';
+            
+            n = n.replace(/klyftor$/i, 'klyfta');
+            n = n.replace(/lökar$/i, 'lök');
+            n = n.replace(/tomater$/i, 'tomat');
+            n = n.replace(/morötter$/i, 'morot');
+            n = n.replace(/potatisar$/i, 'potatis');
+            n = n.replace(/filéer$/i, 'filé');
+            n = n.replace(/förpackningar$/i, 'förp');
+            n = n.replace(/burkar$/i, 'burk');
+            n = n.replace(/skivor$/i, 'skiva');
+            n = n.replace(/bitar$/i, 'bit');
+            n = n.replace(/påsar$/i, 'påse');
+            n = n.replace(/krukor$/i, 'kruka');
+            n = n.replace(/halvor$/i, 'halva');
+            n = n.replace(/korvar$/i, 'korv');
+            
+            return n.charAt(0).toUpperCase() + n.slice(1);
+          };
+
+          const normalizeUnit = (unit) => {
+            let u = unit.toLowerCase().trim();
+            if (u === 'klyftor' || u === 'klyfta' || u === 'stycken' || u === 'styck') return 'st';
+            if (u === 'förpackning' || u === 'förpackningar' || u === 'paket' || u === 'pkt' || u === 'ask' || u === 'askar') return 'förp';
+            if (u === 'krukor') return 'kruka';
+            if (u === 'skivor' || u === 'skiva') return 'skiva';
+            if (u === 'burkar' || u === 'burk') return 'burk';
+            if (u === 'port' || u === 'portioner' || u === 'portion') return 'port';
+            if (u === 'g' || u === 'gram') return 'g';
+            if (u === 'kg' || u === 'kilo') return 'kg';
+            if (u === 'msk' || u === 'matskedar' || u === 'matsked') return 'msk';
+            if (u === 'tsk' || u === 'teskedar' || u === 'tesked') return 'tsk';
+            if (u === 'krm' || u === 'kryddmått') return 'krm';
+            if (u === 'l' || u === 'liter') return 'liter';
+            if (u === 'dl' || u === 'deciliter') return 'dl';
+            if (u === 'cl' || u === 'centiliter') return 'cl';
+            if (u === 'ml' || u === 'milliliter') return 'ml';
+            if (u === 'knippe' || u === 'knippen') return 'knippe';
+            if (u === 'näve' || u === 'nävar') return 'näve';
+            return u;
+          };
+
+          const shoppingList = useMemo(() => {
+            if (mealPlan.length === 0) return [];
+            const listMap = {};
+            mealPlan.forEach(day => {
+              if(!day.recipe.ingredients) return;
+              day.recipe.ingredients.forEach(ing => {
+                const normName = normalizeName(ing.name);
+                const normUnit = normalizeUnit(ing.unit);
+                
+                if (!listMap[normName]) {
+                  listMap[normName] = { name: normName, amounts: {} };
+                }
+                
+                if (listMap[normName].amounts[normUnit]) {
+                  listMap[normName].amounts[normUnit] += ing.amount;
+                } else {
+                  listMap[normName].amounts[normUnit] = ing.amount;
+                }
+              });
+            });
+            return Object.values(listMap).sort((a, b) => a.name.localeCompare(b.name));
+          }, [mealPlan]);
+
+          const formatAmounts = (amountsObj) => {
+            const parts = [];
+            for (const [unit, amount] of Object.entries(amountsObj)) {
+              let displayAmount = amount;
+              let displayUnit = unit;
+              if (unit === 'g' && amount >= 1000 && amount % 100 === 0) {
+                displayAmount = amount / 1000;
+                displayUnit = 'kg';
+              }
+              displayAmount = Math.round(displayAmount * 10) / 10;
+              parts.push(`${displayAmount} ${displayUnit}`);
+            }
+            return parts.join(' + ');
+          };
+
+          const toggleCheckItem = (name) => {
+            const newChecked = { ...checkedListItems, [name]: !checkedListItems[name] };
+            setCheckedListItems(newChecked);
+            updateDb({ checkedListItems: newChecked });
+          };
+
+          const handleCopyList = () => {
+            if (shoppingList.length === 0) {
+                showToast("Listan är tom."); return;
+            }
+            const text = shoppingList.map(item => `${formatAmounts(item.amounts)} ${item.name}`).join('\n');
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try { document.execCommand('copy'); showToast("Listan kopierades till urklipp!"); } catch (err) { showToast("Ett fel uppstod."); }
+            document.body.removeChild(textArea);
+          };
+
+          const filteredRecipes = useMemo(() => {
+            if (selectedCollection === 'Alla') return recipes;
+            return recipes.filter(r => r.collection === selectedCollection);
+          }, [recipes, selectedCollection]);
+
+          const CatBadge = ({ protein }) => {
+            const colors = {
+              'kött': 'bg-red-100 text-red-700',
+              'fisk': 'bg-blue-100 text-blue-700',
+              'veg': 'bg-emerald-100 text-emerald-700',
+              'kyckling': 'bg-amber-100 text-amber-700'
+            };
+            const pStr = protein ? protein.toLowerCase() : 'veg';
+            return (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${colors[pStr] || colors['veg']}`}>
+                {protein || 'VEG'}
+              </span>
+            );
+          };
+
+          const AddRecipeModal = () => {
+            const [formData, setFormData] = useState({ name: '', protein: 'kött', collection: 'Spaghetti- & pastarätter', time: '30 min', ingredients: [{ name: '', amount: 1, unit: 'st' }], instructions: '' });
+            const [isScanning, setIsScanning] = useState(false);
+            const cameraInputRef = useRef(null);
+
+            if (!showAddModal) return null;
+
+            const handleSave = () => {
+              if (!formData.name) return showToast("Receptet måste ha ett namn.");
+              const newRecipes = [...recipes, { ...formData, id: 'man_' + Date.now() }];
+              setRecipes(newRecipes);
+              updateDb({ recipes: newRecipes });
+              setShowAddModal(false);
+              showToast("Receptet sparades!");
+            };
+
+            const updateIngredient = (index, field, value) => {
+              const newIngs = [...formData.ingredients];
+              newIngs[index][field] = field === 'amount' ? Number(value) : value;
+              setFormData({ ...formData, ingredients: newIngs });
+            };
+
+            const handleScanRecipe = async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+
+              setIsScanning(true);
+              showToast("Tittar på bilden... Detta kan ta en liten stund.");
+
+              try {
+                const reader = new FileReader();
+                reader.onerror = () => { throw new Error("Kunde inte läsa bilden."); };
+                reader.onloadend = async () => {
+                  try {
+                    const base64Data = reader.result.split(',')[1];
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    
+                    const promptText = `
+                      Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
+                      Extrahera receptet från bilden.
+                      Svara ENDAST med ett giltigt JSON-objekt. 
+                      Objektet MÅSTE ha följande struktur och egenskaper:
+                      {
+                        "name": "Namn på rätten",
+                        "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
+                        "collection": "Spaghetti- & pastarätter" ELLER "Potatisrätter" ELLER "Risrätter" ELLER "Soppor" ELLER "Övriga vardagsrätter" ELLER "Helgmat",
+                        "time": "t.ex. 30 min",
+                        "ingredients": [
+                          { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
+                        ],
+                        "instructions": "1. Gör så här...\\n2. Nästa steg..."
+                      }
+                    `;
+
+                    const payload = {
+                      contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: file.type, data: base64Data } }] }],
+                      generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                    };
+
+                    const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const parsed = JSON.parse(rawText);
+                    
+                    setFormData(prev => ({
+                      ...prev,
+                      name: parsed.name || prev.name,
+                      protein: parsed.protein || prev.protein,
+                      collection: parsed.collection || prev.collection,
+                      time: parsed.time || prev.time,
+                      ingredients: (parsed.ingredients && parsed.ingredients.length > 0) ? parsed.ingredients : prev.ingredients,
+                      instructions: parsed.instructions || prev.instructions
+                    }));
+
+                    showToast("Receptet fylldes i från bilden!");
+                  } catch (err) {
+                    showToast("Kunde inte tolka bilden tyvärr.");
+                  } finally {
+                    setIsScanning(false);
+                    if (cameraInputRef.current) cameraInputRef.current.value = '';
+                  }
+                };
+                reader.readAsDataURL(file);
+              } catch (err) {
+                showToast("Ett fel uppstod.");
+                setIsScanning(false);
+              }
+            };
+
+            return (
+              <div 
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+                onClick={() => setShowAddModal(false)}
+              >
+                <div 
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                    <h2 className="text-xl font-bold text-slate-800">Skapa nytt recept</h2>
+                    <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20} /></button>
+                  </div>
+                  
+                  <div className="p-6 space-y-6 bg-slate-50/50">
+                    
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-emerald-800">Har du receptet framför dig?</h3>
+                        <p className="text-emerald-600 text-sm">Fota av ett papper eller en skärm så fyller vi i automatiskt!</p>
+                      </div>
+                      <div className="relative w-full sm:w-auto">
+                        <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleScanRecipe} className="hidden" id="camera-upload" />
+                        <label htmlFor="camera-upload" className={`flex items-center justify-center gap-2 px-5 py-2.5 ${isScanning ? 'bg-emerald-200 text-emerald-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'} rounded-xl font-semibold text-sm transition-all shadow-sm w-full whitespace-nowrap`}>
+                          {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                          {isScanning ? 'Läser bild...' : 'Scanna med kameran'}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Receptnamn</label>
+                      <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="T.ex. Krämig Pasta" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Proteinkälla</label>
+                        <select value={formData.protein} onChange={(e) => setFormData({...formData, protein: e.target.value})} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                          <option value="kött">Kött</option>
+                          <option value="fisk">Fisk</option>
+                          <option value="veg">Vegetariskt</option>
+                          <option value="kyckling">Kyckling</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Bokkapitel</label>
+                        <select value={formData.collection} onChange={(e) => setFormData({...formData, collection: e.target.value})} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                          {BOOK_COLLECTIONS.filter(c => c !== 'Alla').map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tid</label>
+                        <input type="text" value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="30 min" />
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-4">
+                        <label className="text-sm font-semibold text-slate-700">Ingredienser</label>
+                        <button onClick={() => setFormData({ ...formData, ingredients: [...formData.ingredients, { name: '', amount: 1, unit: 'st' }] })} className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 flex items-center gap-1.5"><Plus size={16} /> Lägg till</button>
+                      </div>
+                      <div className="space-y-3">
+                        {formData.ingredients.map((ing, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input type="text" value={ing.name} onChange={(e) => updateIngredient(idx, 'name', e.target.value)} placeholder="T.ex. Morot" className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                            <input type="number" value={ing.amount} onChange={(e) => updateIngredient(idx, 'amount', e.target.value)} className="w-20 px-3 py-2 border border-slate-200 rounded-lg text-sm" min="0" step="0.5"/>
+                            <input type="text" value={ing.unit} onChange={(e) => updateIngredient(idx, 'unit', e.target.value)} placeholder="st" className="w-16 px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                            <button onClick={() => setFormData({ ...formData, ingredients: formData.ingredients.filter((_, i) => i !== idx) })} className="p-2 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Gör så här</label>
+                      <textarea value={formData.instructions} onChange={(e) => setFormData({...formData, instructions: e.target.value})} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none min-h-[120px]" placeholder="1. Stek löken..." />
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 sticky bottom-0">
+                    <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-semibold">Avbryt</button>
+                    <button onClick={handleSave} disabled={!formData.name} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50"><Save size={18} /> Spara</button>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          const RecipeModal = () => {
+            const [imgLoading, setImgLoading] = useState(true);
+
+            if (!selectedRecipeId) return null;
+            const recipe = recipes.find(r => r.id === selectedRecipeId);
+            if (!recipe) return null;
+
+            return (
+              <div 
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+                onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }}
+              >
+                <div 
+                  className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8 overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="p-6 relative">
+                    <button onClick={() => { setSelectedRecipeId(null); setImgLoading(true); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full p-2 z-20"><X size={20} /></button>
+                    
+                    <div className="pr-10 mb-6">
+                      <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{recipe.collection}</span>
+                      <h2 className="text-3xl font-extrabold text-slate-800 leading-tight mb-3">{recipe.name}</h2>
+                      
+                      <div className="w-full h-48 sm:h-64 bg-slate-100 rounded-2xl mb-4 overflow-hidden shadow-inner relative">
+                        {imgLoading && (
+                           <div className="absolute inset-0 flex items-center justify-center bg-slate-100 z-10">
+                              <Loader2 size={24} className="text-slate-400 animate-spin" />
+                           </div>
+                        )}
+                        <img 
+                          src={getRecipeImage(recipe.name, recipe.collection)} 
+                          alt={recipe.name} 
+                          className={`w-full h-full object-cover transition-opacity duration-500 ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
+                          onLoad={() => setImgLoading(false)}
+                          onError={(e) => {
+                            e.target.onerror = null; 
+                            e.target.src = getFallbackImage(recipe.id);
+                            setImgLoading(false);
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+                        <CatBadge protein={recipe.protein} />
+                        <span className="flex items-center gap-1.5"><CalendarDays size={16}/> {recipe.time}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100/50">
+                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-600"/> Ingredienser</h3>
+                        <ul className="space-y-2.5">
+                          {recipe.ingredients.map((ing, i) => (
+                            <li key={i} className="flex justify-between items-center text-slate-700 text-sm">
+                              <span className="font-medium">{ing.name}</span>
+                              <span className="text-emerald-700 font-bold bg-white px-2 py-1 rounded-md shadow-sm border border-emerald-50">{ing.amount} {ing.unit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Utensils size={18} className="text-emerald-600"/> Tillagning</h3>
+                        <div className="space-y-3">
+                          {recipe.instructions.split('\n').map((step, idx) => {
+                             const cleanStep = step.replace(/^\d+\.\s*/, '').trim();
+                             if(!cleanStep) return null;
+                             return (
+                              <div key={idx} className="flex gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-white rounded-full text-emerald-600 font-bold shadow-sm border border-slate-100">{idx+1}</span>
+                                <p className="text-slate-700 pt-1 leading-relaxed">{cleanStep}</p>
+                              </div>
+                             );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 md:pb-10 relative selection:bg-emerald-200">
+              
+              {toastMessage && (
+                <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-3 z-[60] animate-in fade-in slide-in-from-bottom-6 duration-300 w-[90%] md:w-auto max-w-md">
+                  <Info size={20} className="text-emerald-400 flex-shrink-0" />
+                  <span className="font-medium text-sm">{toastMessage}</span>
+                </div>
+              )}
+
+              <header className="bg-white border-b border-slate-100 sticky top-0 z-30">
+                <div className="max-w-4xl mx-auto px-4 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl shadow-md shadow-emerald-500/30 overflow-hidden bg-white border-2 border-emerald-500 flex-shrink-0 p-0.5">
+                        <RobotLogo />
+                      </div>
+                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
+                      
+                      {deferredPrompt && (
+                        <button onClick={installApp} className="ml-4 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
+                          <Download size={14} /> Installera App
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="hidden md:flex bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
+                      <button onClick={() => setActiveTab('plan')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'plan' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <Calendar size={18} /> Matsedel
+                      </button>
+                      <button onClick={() => setActiveTab('list')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'list' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <ShoppingCart size={18} /> Inköpslista
+                      </button>
+                      <button onClick={() => setActiveTab('recipes')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'recipes' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <BookOpen size={18} /> Recept
+                      </button>
+                      <button onClick={() => setActiveTab('inspiration')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'inspiration' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <Sparkles size={18} /> Inspiration
+                      </button>
+                    </div>
+                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight sm:hidden mr-auto pl-3">KockBot</h1>
+                  </div>
+                </div>
+              </header>
+
+              <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 pb-safe z-40 flex justify-between items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                 <button onClick={() => setActiveTab('plan')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'plan' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <Calendar size={24} className={activeTab === 'plan' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Matsedel</span>
+                 </button>
+                 <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'list' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <ShoppingCart size={24} className={activeTab === 'list' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Handla</span>
+                 </button>
+                 <button onClick={() => setActiveTab('recipes')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'recipes' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <BookOpen size={24} className={activeTab === 'recipes' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Recept</span>
+                 </button>
+                 <button onClick={() => setActiveTab('inspiration')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'inspiration' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <Sparkles size={24} className={activeTab === 'inspiration' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Hitta på</span>
+                 </button>
+              </div>
+
+              <main className="max-w-4xl mx-auto px-4 py-8">
+                
+                {/* --- VY: MATSEDEL --- */}
+                {activeTab === 'plan' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {recipes.length === 0 ? (
+                        <div className="text-center py-20 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><BookOpen size={32} className="text-emerald-500" /></div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Din receptbok är tom</h2>
+                            <button onClick={() => setActiveTab('recipes')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors mt-4">Gå till Receptboken</button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                              <div><h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2></div>
+                              <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
+                                  <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
+                                  <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
+                              </div>
+                            </div>
+
+                            {mealPlan.length > 0 && (
+                                <div className="space-y-10">
+                                {Array.from({ length: planType === 'week' ? 1 : 4 }).map((_, weekIndex) => {
+                                    const targetDate = new Date();
+                                    targetDate.setDate(targetDate.getDate() + (weekIndex * 7));
+                                    const actualWeekNum = getISOWeekNumber(targetDate);
+                                    return (
+                                        <div key={weekIndex}>
+                                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="bg-emerald-100 text-emerald-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">V{actualWeekNum}</span> Vecka {actualWeekNum}</h3>
+                                        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                                            <div className="divide-y divide-slate-100">
+                                            {mealPlan.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, idx) => {
+                                            const actualIndex = (weekIndex * 7) + idx;
+                                            return (
+                                                <div key={actualIndex} className="p-4 sm:p-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                                                <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
+                                                    <p className="font-extrabold text-slate-700 w-16 sm:w-24 text-sm sm:text-base flex-shrink-0">{day.dayName}</p>
+                                                    <button onClick={() => setSelectedRecipeId(day.recipe.id)} className="flex-1 text-left font-bold text-slate-900 text-base sm:text-lg hover:text-emerald-600 transition-colors truncate flex items-center gap-2">
+                                                      <span className="truncate">{day.recipe.name}</span><ExternalLink size={16} className="opacity-0 group-hover:opacity-100 text-emerald-500 transition-opacity flex-shrink-0 hidden sm:block" />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 ml-4">
+                                                    <div className="hidden sm:block"><CatBadge protein={day.recipe.protein} /></div>
+                                                    <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+                                                </div>
+                                                </div>
+                                            );
+                                            })}
+                                            </div>
+                                        </div>
+                                        </div>
+                                    );
+                                })}
+                                </div>
+                            )}
+                        </>
+                    )}
+                  </div>
+                )}
+
+                {/* --- VY: INKÖPSLISTA --- */}
+                {activeTab === 'list' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
+                    {mealPlan.length === 0 ? (
+                         <div className="text-center py-20 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><ShoppingCart size={32} className="text-slate-400" /></div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Inköpslistan är tom</h2>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 mb-6">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-6 mb-8 border-b border-slate-100 pb-6">
+                            <div><h2 className="text-3xl font-extrabold text-slate-800 mb-2">Inköpslista</h2></div>
+                            <button onClick={handleCopyList} className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition-all shadow-lg"><Copy size={16} /> Kopiera text</button>
+                        </div>
+                        <div className="space-y-2">
+                            {shoppingList.map((item, idx) => {
+                            const isChecked = checkedListItems[item.name];
+                            return (
+                                <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 gap-4 sm:gap-2 ${isChecked ? 'bg-slate-50 border-transparent opacity-60' : 'bg-white border-slate-200 shadow-sm hover:border-emerald-300'}`}>
+                                <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => toggleCheckItem(item.name)}>
+                                    <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isChecked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 bg-white'}`}>
+                                    {isChecked && <Check size={14} className="text-white" strokeWidth={3} />}
+                                    </div>
+                                    <span className={`font-semibold text-lg sm:text-base transition-colors ${isChecked ? 'line-through text-slate-400' : 'text-slate-800'}`}>{item.name}</span>
+                                </div>
+                                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
+                                    <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
+                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                </div>
+                                </div>
+                            );
+                            })}
+                        </div>
+                        </div>
+                    )}
+                  </div>
+                )}
+
+                {/* --- VY: RECEPTBOK --- */}
+                {activeTab === 'recipes' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                      <div>
+                        <h2 className="text-3xl font-extrabold text-slate-800">Receptbok</h2>
+                        <p className="text-slate-500 font-medium mt-1">{recipes.length} sparade favoriter.</p>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button onClick={() => setShowAddModal(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-emerald-600/20">
+                          <Plus size={18} /> Nytt Recept
+                        </button>
+                        <div className="relative flex-1 md:flex-none">
+                          <input type="file" accept="application/pdf" ref={fileInputRef} onChange={handlePdfUpload} className="hidden" id="pdf-upload" />
+                          <label htmlFor="pdf-upload" className={`flex items-center justify-center gap-2 px-5 py-2.5 ${isUploadingPdf ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 cursor-pointer'} rounded-xl font-semibold text-sm transition-all w-full`}>
+                            {isUploadingPdf ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />} {isUploadingPdf ? 'Läser in...' : 'Importera PDF'}
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* KATEGORI FILTRERING */}
+                    {recipes.length > 0 && (
+                        <div className="flex overflow-x-auto hide-scrollbar gap-2 mb-8 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+                            {BOOK_COLLECTIONS.map(cat => (
+                                <button 
+                                    key={cat}
+                                    onClick={() => setSelectedCollection(cat)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${selectedCollection === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                                >
+                                    {cat === 'Alla' && <Filter size={14} />} {cat}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {filteredRecipes.length === 0 ? (
+                         <div className="text-center py-16 px-4 bg-white/50 border-2 border-dashed border-slate-200 rounded-3xl">
+                            <p className="text-slate-500">Inga recept i denna kategori.</p>
+                         </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {filteredRecipes.map(recipe => (
+                            <div key={recipe.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer relative" onClick={() => setSelectedRecipeId(recipe.id)}>
+                            
+                            <button onClick={(e) => { e.stopPropagation(); deleteRecipe(recipe.id); }} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-sm" title="Ta bort recept">
+                                <Trash2 size={16} />
+                            </button>
+
+                            <div className="flex justify-between items-center mb-3 pr-8">
+                               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">{recipe.collection}</span>
+                            </div>
+
+                            <h3 className="font-extrabold text-xl text-slate-800 mb-4 leading-tight group-hover:text-emerald-600 transition-colors">{recipe.name}</h3>
+                            
+                            <div className="mt-auto pt-4 flex justify-between items-center border-t border-slate-50">
+                                <CatBadge protein={recipe.protein} />
+                                <span className="text-slate-400 text-xs font-bold">{recipe.time}</span>
+                            </div>
+                            </div>
+                        ))}
+                        </div>
+                    )}
+                  </div>
+                )}
+
+                {/* --- VY: INSPIRATION --- */}
+                {activeTab === 'inspiration' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
+                    <div className="text-center mb-8">
+                      <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Sparkles size={28} className="text-emerald-600" />
+                      </div>
+                      <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Ny inspiration</h2>
+                      <p className="text-slate-500">Skriv in en råvara du har hemma eller något du är sugen på, så hittar AI-kocken på ett nytt, gott recept åt dig.</p>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-8 flex flex-col sm:flex-row gap-3">
+                      <input 
+                        type="text" 
+                        value={inspirationQuery} 
+                        onChange={(e) => setInspirationQuery(e.target.value)} 
+                        placeholder="T.ex. Vegetariskt med sötpotatis..." 
+                        className="flex-1 px-5 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateInspiration()}
+                      />
+                      <button 
+                        onClick={handleGenerateInspiration} 
+                        disabled={isGeneratingInspiration}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        {isGeneratingInspiration ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        Skapa recept
+                      </button>
+                    </div>
+
+                    {inspiredRecipe && (
+                      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300 relative">
+                        <div className="p-6 sm:p-8">
+                          <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{inspiredRecipe.collection}</span>
+                          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight mb-4">{inspiredRecipe.name}</h2>
+                          
+                          <div className="w-full h-40 sm:h-64 bg-slate-100 rounded-2xl mb-6 overflow-hidden relative">
+                             <img 
+                              src={getRecipeImage(inspiredRecipe.name, inspiredRecipe.collection)} 
+                              alt={inspiredRecipe.name} 
+                              className="w-full h-full object-cover transition-opacity duration-500"
+                              onError={(e) => {
+                                e.target.onerror = null; 
+                                e.target.src = getFallbackImage(inspiredRecipe.id);
+                              }}
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-3 text-sm font-medium text-slate-500 mb-6">
+                            <CatBadge protein={inspiredRecipe.protein} />
+                            <span className="flex items-center gap-1.5"><CalendarDays size={16}/> {inspiredRecipe.time}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-600"/> Ingredienser</h3>
+                              <ul className="space-y-2 text-sm text-slate-700">
+                                {inspiredRecipe.ingredients.map((ing, i) => (
+                                  <li key={i} className="flex justify-between border-b border-slate-200/50 pb-1 last:border-0">
+                                    <span>{ing.name}</span>
+                                    <span className="font-bold text-emerald-700">{ing.amount} {ing.unit}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            
+                            <div>
+                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Utensils size={18} className="text-emerald-600"/> Tillagning</h3>
+                              <div className="space-y-3">
+                                {inspiredRecipe.instructions.split('\n').map((step, idx) => {
+                                  const cleanStep = step.replace(/^\d+\.\s*/, '').trim();
+                                  if(!cleanStep) return null;
+                                  return (
+                                    <div key={idx} className="flex gap-3 text-sm">
+                                      <span className="font-bold text-emerald-600">{idx+1}.</span>
+                                      <p className="text-slate-700">{cleanStep}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button onClick={saveInspiredRecipe} className="w-full px-6 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg">
+                            <Save size={20} /> Spara detta till min Receptbok
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </main>
+
+              <RecipeModal />
+              <AddRecipeModal />
+
+            </div>
+          );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
