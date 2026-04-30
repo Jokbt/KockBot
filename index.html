@@ -41,7 +41,7 @@
         const { 
           Calendar, ShoppingCart, BookOpen, RefreshCw, ChefHat, Info, 
           X, CalendarDays, Plus, Upload, Trash2, Save, Users,
-          Loader2, CheckCircle2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download
+          Loader2, CheckCircle2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock
         } = Lucide;
 
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
@@ -317,11 +317,10 @@
           const [user, setUser] = useState(null);
           const [isDbLoaded, setIsDbLoaded] = useState(false);
 
-          // Familjedelning
-          const [householdId, setHouseholdId] = useState(() => {
-            return localStorage.getItem('smartMatsedel_householdId') || '';
-          });
+          // Familjedelning & Lås-funktion
+          const [householdId, setHouseholdId] = useState(() => localStorage.getItem('smartMatsedel_householdId') || '');
           const [showShareModal, setShowShareModal] = useState(false);
+          const [isPlanLocked, setIsPlanLocked] = useState(() => localStorage.getItem('smartMatsedel_planLocked') === 'true');
           
           const [deferredPrompt, setDeferredPrompt] = useState(null);
           const [isIOS, setIsIOS] = useState(false);
@@ -332,28 +331,24 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
           
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v24');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v25');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
               localStorage.removeItem('smartMatsedel_mealPlan');
               localStorage.removeItem('smartMatsedel_planType');
               localStorage.removeItem('smartMatsedel_checkedListItems');
-              localStorage.setItem('smartMatsedel_cleared_v24', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v25', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
             return saved ? JSON.parse(saved) : DEFAULT_RECIPES;
           });
 
-          const [planType, setPlanType] = useState(() => {
-            return localStorage.getItem('smartMatsedel_planType') || 'week';
-          }); 
-
+          const [planType, setPlanType] = useState(() => localStorage.getItem('smartMatsedel_planType') || 'week'); 
           const [mealPlan, setMealPlan] = useState(() => {
             const saved = localStorage.getItem('smartMatsedel_mealPlan');
             return saved ? JSON.parse(saved) : [];
           });
-
           const [checkedListItems, setCheckedListItems] = useState(() => {
             const saved = localStorage.getItem('smartMatsedel_checkedListItems');
             return saved ? JSON.parse(saved) : {};
@@ -391,7 +386,7 @@
             return () => unsubscribe();
           }, []);
 
-          // HÄR sker realtids-synkningen med Firebase
+          // Realtids-synkning med Firebase
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
@@ -403,13 +398,11 @@
                 if (data.mealPlan && data.mealPlan.length > 0) setMealPlan(data.mealPlan);
                 if (data.planType) setPlanType(data.planType);
                 if (data.checkedListItems) setCheckedListItems(data.checkedListItems);
+                if (data.isPlanLocked !== undefined) setIsPlanLocked(data.isPlanLocked);
               } else {
-                // Om hushållet inte finns i molnet ännu, skapa det med nuvarande data!
+                // Skapa hushållet initialt med vår lokala data
                 setDoc(docRef, { 
-                  recipes,
-                  mealPlan,
-                  planType,
-                  checkedListItems
+                  recipes, mealPlan, planType, checkedListItems, isPlanLocked 
                 }, { merge: true }).catch(console.error);
               }
               setIsDbLoaded(true);
@@ -435,6 +428,7 @@
           useEffect(() => { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); }, [mealPlan]);
           useEffect(() => { localStorage.setItem('smartMatsedel_planType', planType); }, [planType]);
           useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
+          useEffect(() => { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); }, [isPlanLocked]);
 
           useEffect(() => {
             const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -498,20 +492,21 @@
             setMealPlan(newPlan);
             setPlanType(type);
             setCheckedListItems({});
-            updateDb({ mealPlan: newPlan, planType: type, checkedListItems: {} });
+            setIsPlanLocked(false);
+            updateDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
           };
 
-          useEffect(() => {
-            if (isDbLoaded && mealPlan.length === 0 && recipes.length > 0) {
-              generatePlan('week', recipes);
-            }
-          }, [isDbLoaded, recipes]);
+          const toggleLock = () => {
+            const newState = !isPlanLocked;
+            setIsPlanLocked(newState);
+            updateDb({ isPlanLocked: newState });
+            showToast(newState ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
+          };
 
           const swapDayRecipe = (index) => {
             if (recipes.length === 0) return;
             
             const currentPlan = [...mealPlan];
-            // Kopia för att inte ändra listan direkt utan att React fattar
             const targetDay = { ...currentPlan[index] }; 
             const currentRecipeId = targetDay.recipe.id;
             
@@ -565,12 +560,12 @@
                 try {
                   const base64Data = reader.result.split(',')[1];
                   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                  const promptText = `Extrahera recept från PDF. Svara ENDAST med giltig JSON-array. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.`;
+                  const promptText = `Extrahera recept från PDF. Svara ENDAST med en giltig JSON-array med objekt. Ingen markdown runtomkring. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.`;
 
                   const payload = {
                     contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
                     generationConfig: { 
-                        temperature: 0.2, responseMimeType: "application/json", 
+                        temperature: 0.1, responseMimeType: "application/json", 
                         responseSchema: {
                           type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, protein: { type: "STRING" }, collection: { type: "STRING" }, time: { type: "STRING" }, ingredients: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, amount: { type: "NUMBER" }, unit: { type: "STRING" } }, required: ["name", "amount", "unit"] } }, instructions: { type: "STRING" } }, required: ["name", "protein", "collection", "time", "ingredients", "instructions"] }
                         }
@@ -579,7 +574,15 @@
 
                   const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                   const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                  const parsedRecipes = JSON.parse(rawText);
+                  
+                  // Städa bort ev. Markdown (```json ... ```) från AI-svaret för att förhindra krasch
+                  let cleanText = rawText || "[]";
+                  cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                  // Säkerhetskopiering för att plocka exakt JSON Array
+                  const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
+                  if (arrayMatch) { cleanText = arrayMatch[0]; }
+
+                  const parsedRecipes = JSON.parse(cleanText);
                   const recipesWithIds = parsedRecipes.map(r => ({ ...r, id: 'pdf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) }));
                   
                   const newRecipes = [...recipes, ...recipesWithIds];
@@ -587,7 +590,7 @@
                   updateDb({ recipes: newRecipes });
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
-                  showToast(`Fel vid import.`);
+                  showToast(`Fel vid import. (Kunde inte läsa PDF)`);
                 } finally {
                   setIsUploadingPdf(false);
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -612,7 +615,7 @@
               const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
-                Svara ENDAST med ett giltigt JSON-objekt. 
+                Svara ENDAST med ett giltigt JSON-objekt. Inga extra tecken. 
                 Objektet MÅSTE ha följande struktur och egenskaper:
                 {
                   "name": "Namn på rätten",
@@ -632,7 +635,8 @@
               };
 
               const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-              const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+              rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
               const parsed = JSON.parse(rawText);
               
               setInspiredRecipe({ ...parsed, id: 'insp_' + Date.now() });
@@ -936,7 +940,9 @@
 
                     const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    const parsed = JSON.parse(rawText);
+                    let cleanText = rawText || "{}";
+                    cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    const parsed = JSON.parse(cleanText);
                     
                     setFormData(prev => ({
                       ...prev,
@@ -1171,7 +1177,7 @@
                         </button>
                         {!isStandalone && (
                           <button onClick={installApp} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
-                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> App
+                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> <span className="hidden md:inline">App</span>
                           </button>
                         )}
                       </div>
@@ -1225,14 +1231,32 @@
                             <h2 className="text-2xl font-bold text-slate-800 mb-2">Din receptbok är tom</h2>
                             <button onClick={() => setActiveTab('recipes')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors mt-4">Gå till Receptboken</button>
                         </div>
+                    ) : mealPlan.length === 0 ? (
+                        <div className="text-center py-20 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><Calendar size={32} className="text-emerald-500" /></div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Ingen meny skapad ännu</h2>
+                            <p className="text-slate-500 mb-6">Klicka nedan för att slumpa fram er första matsedel!</p>
+                            <div className="flex justify-center gap-3">
+                                <button onClick={() => generatePlan('week')} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition-colors">1 Vecka</button>
+                                <button onClick={() => generatePlan('month')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors">4 Veckor</button>
+                            </div>
+                        </div>
                     ) : (
                         <>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                              <div><h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2></div>
-                              <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
-                                  <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
-                                  <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
+                              <div className="flex items-center gap-3">
+                                <h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2>
+                                <button onClick={toggleLock} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm ${isPlanLocked ? 'bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                  {isPlanLocked ? <><Lock size={14} /> Låst</> : <><Unlock size={14} /> Lås fast</>}
+                                </button>
                               </div>
+                              
+                              {!isPlanLocked && (
+                                <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
+                                    <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
+                                    <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
+                                </div>
+                              )}
                             </div>
 
                             {mealPlan.length > 0 && (
@@ -1258,7 +1282,9 @@
                                                 </div>
                                                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 ml-4">
                                                     <div className="hidden sm:block"><CatBadge protein={day.recipe.protein} /></div>
-                                                    <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+                                                    {!isPlanLocked && (
+                                                      <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+                                                    )}
                                                 </div>
                                                 </div>
                                             );
@@ -1302,7 +1328,7 @@
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
