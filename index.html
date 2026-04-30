@@ -331,13 +331,13 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
           
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v25');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v26');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
               localStorage.removeItem('smartMatsedel_mealPlan');
               localStorage.removeItem('smartMatsedel_planType');
               localStorage.removeItem('smartMatsedel_checkedListItems');
-              localStorage.setItem('smartMatsedel_cleared_v25', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v26', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
@@ -575,13 +575,8 @@
                   const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                   const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                   
-                  // Städa bort ev. Markdown (```json ... ```) från AI-svaret för att förhindra krasch
+                  // Enkelt skydd mot parse-fel om AI:n är pratig, annars kraschar hela appen
                   let cleanText = rawText || "[]";
-                  cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
-                  // Säkerhetskopiering för att plocka exakt JSON Array
-                  const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
-                  if (arrayMatch) { cleanText = arrayMatch[0]; }
-
                   const parsedRecipes = JSON.parse(cleanText);
                   const recipesWithIds = parsedRecipes.map(r => ({ ...r, id: 'pdf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) }));
                   
@@ -590,6 +585,7 @@
                   updateDb({ recipes: newRecipes });
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
+                  console.error(err);
                   showToast(`Fel vid import. (Kunde inte läsa PDF)`);
                 } finally {
                   setIsUploadingPdf(false);
@@ -636,7 +632,6 @@
 
               const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
               let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
               const parsed = JSON.parse(rawText);
               
               setInspiredRecipe({ ...parsed, id: 'insp_' + Date.now() });
@@ -940,9 +935,7 @@
 
                     const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    let cleanText = rawText || "{}";
-                    cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    const parsed = JSON.parse(cleanText);
+                    const parsed = JSON.parse(rawText);
                     
                     setFormData(prev => ({
                       ...prev,
@@ -1328,7 +1321,7 @@
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
