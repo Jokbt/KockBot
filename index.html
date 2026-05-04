@@ -312,6 +312,8 @@
           ['soppa_3', 'Köttfärs- och potatissoppa', 'kött', 'Soppor', '35 min', [['Gul lök',1,'st'],['Vitlök',1,'klyfta'],['Blandfärs',500,'g'],['Tomatpuré',3,'msk'],['Köttbuljongtärningar',2,'st'],['Vatten',8,'dl'],['Potatis',8,'st'],['Morötter',4,'st'],['Basilika',2,'tsk'],['Oregano',2,'tsk']], '1. Skala och hacka lök och vitlök. Fräs löken glansig i matfett i en rejäl gryta.\n2. Värm matfett i en stekpanna och fräs färsen.\n3. Blanda ner tomatpuré och häll över blandningen i grytan.\n4. Lägg i buljongtärningar och häll på vatten. Låt koka på svag värme.\n5. Skala potatisen, skär i bitar och lägg i grytan. Koka i 15-20 minuter.\n6. Skala och skär morötterna i skivor och låt koka med i ca 5 minuter. Krydda och smaka av.'],
           ['soppa_4', 'Spenatsoppa', 'veg', 'Soppor', '20 min', [['Hackad fryst spenat',450,'g'],['Smör',2,'msk'],['Vispgrädde',1,'dl'],['Vatten',1,'liter'],['Grönsaksbuljong',2,'tärningar'],['Ägg',4,'st']], '1. Värm upp den frysta spenaten tillsammans med smöret och ca. 2 dl av vattnet.\n2. Häll sedan i resterande mängd vatten och grönsaksbuljongen, koka upp.\n3. Koka äggen medelkokt/hårdkokt beroende på vad som gillas.\n4. Smaka av soppan med salt och peppar. Tillsätt ev. lite gräslök.\n5. Dra av kastrullen från plattan och tillsätt vispgrädde. Servera med halverade ägg.'],
           ['soppa_5', 'Rostad tomatsoppa och vitlöksbröd', 'veg', 'Soppor', '50 min', [['Kvisttomat',1000,'g'],['Vitlök',0.5,'st'],['Rödlökar',2,'st'],['Olivolja',2,'msk'],['Vatten',5,'dl'],['Grönsaksbuljong',2,'tärningar'],['Vispgrädde',2,'dl'],['Vitlöksbröd',1,'förp'],['Gräddfil',1,'dl']], '1. Sätt ugnen på 200 grader.\n2. Skär tomaterna på hälften. Skala och skär löken i klyftor. Halvera vitlöken, behåll skalet på.\n3. Lägg allt i en form, ringla över olivolja. Lägg i vitlöken med snittytan uppåt.\n4. Rosta i ugnen 40-50 minuter tills grönsakerna fått färg.\n5. Koka upp vatten och buljong i en kastrull.\n6. Kläm ur den mjuka vitlöken och släng skalet.\n7. Lägg tomater, lök och vitlök i buljongen, koka i ett par minuter.\n8. Mixa soppan slät med stavmixer.\n9. Tillsätt grädden, mixa mer, smaka av med salt/peppar.\n10. Servera med vitlöksbröd, en klick gräddfil och basilika.'],
+          ['soppa_6', 'Lasagnesoppa', 'kött', 'Soppor', '35 min', [['Nötfärs',500,'g'],['Gul lök',2,'st'],['Vitlöksklyftor',5,'st'],['Krossade tomater',390,'g'],['Vatten',5,'dl'],['Köttbuljongtärningar',2,'st'],['Lasagneplattor',10,'st'],['Vispgrädde',2,'dl'],['Mozzarella (riven)',3,'dl'],['Ricotta',250,'g']], '1. Börja med att fräsa hackad lök och vitlök. När de fått färg, tillsätt köttfärs och alla torra kryddor. Stek tills färsen fått fin yta.\n2. Fräs med tomatpurén i några minuter. Tillsätt krossad tomat, vatten, köttbuljong och lagerblad. Låt puttra i 10 minuter.\n3. Bryt ner lasagneplattorna och häll i vispgrädden. Tillsätt mer vatten om det behövs. Koka tills lasagneplattorna mjuknat.\n4. Rör ner mozzarella och färsk basilika.\n5. Ricottaröra: Blanda ricotta, parmesan, salt och peppar i en skål.\n6. Servera soppan toppad med ricottaröran.'],
+          ['soppa_7', 'Mild tomatsoppa med salsiccia', 'kött', 'Soppor', '15 min', [['Färdig mild tomatsoppa',1,'liter'],['Körsbärstomater',150,'g'],['Salsiccia',200,'g'],['Smör',1,'msk'],['Mozzarella',1,'st']], '1. Halvera tomaterna. Skiva korven. Lägg undan några korvskivor till garnering.\n2. Bryn korven i smör i en kastrull.\n3. Häll på soppan och värm under omrörning.\n4. Toppa soppan med resten av korven, tomaterna, citronskal och riven mozzarella eller bitar av hel mozzarella.'],
 
           // ÖVRIGA VARDAGSRÄTTER:
           ['ovrigt_1', 'Äggakaka', 'kött', 'Övriga vardagsrätter', '25 min', [['Rimmat sidfläsk',400,'g'],['Ägg',7,'st'],['Vetemjöl',0.5,'dl'],['Mjölk (3%)',6,'dl'],['Salt',1,'tsk'],['Peppar',1,'krm'],['Smör',1,'msk'],['Lingonsylt',2,'dl']], '1. Stek fläsket i en stekpanna. Lyft upp och håll varmt.\n2. Vispa ihop ägg, mjöl, mjölk, salt och peppar till en slät smet. Häll smeten i den varma stekpannan.\n3. Stick med en stekspade så lös smet kan rinna ner och stelna. När kakan stelnat lite på ytan, vänd den med hjälp av ett grytlock eller en tallrik.\n4. Lägg i smör i pannan och låt äggakakan glida tillbaka. Grädda andra sidan tills helt stelnad.\n5. Stjälp upp kakan och servera med fläsket och lingonsylt.'],
@@ -709,6 +711,139 @@
             setInspirationQuery('');
             setActiveTab('recipes');
             showToast("Det nya receptet sparades i din bok!");
+          };
+
+          const normalizeName = (name) => {
+            let n = name.toLowerCase().trim();
+            n = n.replace(/^(färska|färsk|finhackad|hackad|hackade|strimlad|strimlade|skivad|skivade|tärnad|tärnade|torkad|torkade|riven|rivna|hel|hela|gula|gul|röda|röd|gröna|grön|lätt)\s+/i, '');
+            n = n.replace(/\s*\(.*?\)/g, ''); 
+            n = n.trim();
+            if (n.match(/crème fraiche|creme fraiche|crème fraîche/i)) {
+               if (n.match(/tomat/i) && n.match(/basilika/i)) return 'Creme fraiche tomat basilika';
+               if (n.match(/parmesan/i) && n.match(/vitlök/i)) return 'Creme fraiche parmesan vitlök';
+               if (n.match(/örter/i)) return 'Creme fraiche franska örter';
+               if (n.match(/paprika/i) && n.match(/chili/i)) return 'Creme fraiche paprika chili';
+               return 'Creme fraiche';
+            }
+            if (n.match(/^grädde$|vispgrädde/i)) return 'Vispgrädde';
+            if (n.match(/matlagningsgrädde/i)) return 'Matlagningsgrädde';
+            if (n.match(/^mjölk/i)) return 'Mjölk';
+            if (n.match(/köttbuljong/i)) return 'Köttbuljong';
+            if (n.match(/grönsaksbuljong/i)) return 'Grönsaksbuljong';
+            if (n.match(/kycklingbuljong|hönsbuljong/i)) return 'Kycklingbuljong';
+            if (n.match(/kalvfond/i)) return 'Kalvfond';
+            if (n.match(/parmesan/i)) return 'Parmesanost';
+            if (n.match(/pecorino/i)) return 'Pecorinoost';
+            if (n.match(/mozzarella/i)) return 'Mozzarella';
+            if (n.match(/fetaost/i)) return 'Fetaost';
+            if (n.match(/riven ost|gratängost/i)) return 'Riven ost';
+            if (n.match(/kycklinglårfilé/i)) return 'Kycklinglårfilé';
+            if (n.match(/kycklingfilé|kycklingbröst/i)) return 'Kycklingfilé';
+            if (n.match(/blandfärs/i)) return 'Blandfärs';
+            if (n.match(/nötfärs|köttfärs/i)) return 'Nötfärs';
+            if (n.match(/kycklingfärs/i)) return 'Kycklingfärs';
+            if (n.match(/bacon/i)) return 'Bacon';
+            if (n.match(/falukorv/i)) return 'Falukorv';
+            if (n.match(/vitlök/i)) return 'Vitlök'; 
+            if (n.match(/^lök$|^lökar$/i)) return 'Gul lök';
+            if (n.match(/krossade tomater/i)) return 'Krossade tomater';
+            if (n.match(/tomatpuré/i)) return 'Tomatpuré';
+            if (n.match(/körsbärstomat|cocktailtomat/i)) return 'Körsbärstomater';
+            if (n.match(/^tomat$|^tomater$/i)) return 'Tomater';
+            if (n.match(/champinjon/i)) return 'Champinjoner';
+            if (n.match(/potatis/i) && !n.match(/söt|gratäng|mos|klyft/i)) return 'Potatis';
+            if (n.match(/äggulor|^ägg$/i)) return 'Ägg';
+            if (n.match(/smör/i) && !n.match(/jordnöt/i)) return 'Smör';
+            if (n.match(/olivolja/i)) return 'Olivolja';
+            if (n.match(/rapsolja|matolja/i)) return 'Rapsolja';
+            if (n.match(/vetemjöl/i)) return 'Vetemjöl';
+            if (n.match(/majsstärkelse|maizena/i)) return 'Majsstärkelse';
+            if (n.match(/soja|soya/i)) return 'Japansk soja';
+            if (n.match(/pancetta/i)) return 'Pancetta';
+            if (n.match(/salsiccia/i)) return 'Salsiccia';
+            
+            n = n.replace(/klyftor$/i, 'klyfta');
+            n = n.replace(/lökar$/i, 'lök');
+            n = n.replace(/tomater$/i, 'tomat');
+            n = n.replace(/morötter$/i, 'morot');
+            n = n.replace(/potatisar$/i, 'potatis');
+            n = n.replace(/filéer$/i, 'filé');
+            n = n.replace(/förpackningar$/i, 'förp');
+            n = n.replace(/burkar$/i, 'burk');
+            n = n.replace(/skivor$/i, 'skiva');
+            n = n.replace(/bitar$/i, 'bit');
+            n = n.replace(/påsar$/i, 'påse');
+            n = n.replace(/krukor$/i, 'kruka');
+            n = n.replace(/halvor$/i, 'halva');
+            n = n.replace(/korvar$/i, 'korv');
+            
+            return n.charAt(0).toUpperCase() + n.slice(1);
+          };
+
+          const normalizeUnit = (unit) => {
+            let u = unit.toLowerCase().trim();
+            if (u === 'klyftor' || u === 'klyfta' || u === 'stycken' || u === 'styck') return 'st';
+            if (u === 'förpackning' || u === 'förpackningar' || u === 'paket' || u === 'pkt' || u === 'ask' || u === 'askar') return 'förp';
+            if (u === 'krukor') return 'kruka';
+            if (u === 'skivor' || u === 'skiva') return 'skiva';
+            if (u === 'burkar' || u === 'burk') return 'burk';
+            if (u === 'port' || u === 'portioner' || u === 'portion') return 'port';
+            if (u === 'g' || u === 'gram') return 'g';
+            if (u === 'kg' || u === 'kilo') return 'kg';
+            if (u === 'msk' || u === 'matskedar' || u === 'matsked') return 'msk';
+            if (u === 'tsk' || u === 'teskedar' || u === 'tesked') return 'tsk';
+            if (u === 'krm' || u === 'kryddmått') return 'krm';
+            if (u === 'l' || u === 'liter') return 'liter';
+            if (u === 'dl' || u === 'deciliter') return 'dl';
+            if (u === 'cl' || u === 'centiliter') return 'cl';
+            if (u === 'ml' || u === 'milliliter') return 'ml';
+            if (u === 'knippe' || u === 'knippen') return 'knippe';
+            if (u === 'näve' || u === 'nävar') return 'näve';
+            return u;
+          };
+
+          const shoppingList = useMemo(() => {
+            if (mealPlan.length === 0) return [];
+            const listMap = {};
+            mealPlan.forEach(day => {
+              if(!day.recipe.ingredients) return;
+              day.recipe.ingredients.forEach(ing => {
+                const normName = normalizeName(ing.name);
+                const normUnit = normalizeUnit(ing.unit);
+                
+                if (!listMap[normName]) {
+                  listMap[normName] = { name: normName, amounts: {} };
+                }
+                
+                if (listMap[normName].amounts[normUnit]) {
+                  listMap[normName].amounts[normUnit] += ing.amount;
+                } else {
+                  listMap[normName].amounts[normUnit] = ing.amount;
+                }
+              });
+            });
+            return Object.values(listMap).sort((a, b) => a.name.localeCompare(b.name));
+          }, [mealPlan]);
+
+          const formatAmounts = (amountsObj) => {
+            const parts = [];
+            for (const [unit, amount] of Object.entries(amountsObj)) {
+              let displayAmount = amount;
+              let displayUnit = unit;
+              if (unit === 'g' && amount >= 1000 && amount % 100 === 0) {
+                displayAmount = amount / 1000;
+                displayUnit = 'kg';
+              }
+              displayAmount = Math.round(displayAmount * 10) / 10;
+              parts.push(`${displayAmount} ${displayUnit}`);
+            }
+            return parts.join(' + ');
+          };
+
+          const toggleCheckItem = (name) => {
+            const newChecked = { ...checkedListItems, [name]: !checkedListItems[name] };
+            setCheckedListItems(newChecked);
+            updateDb({ checkedListItems: newChecked });
           };
 
           const handleCopyList = () => {
