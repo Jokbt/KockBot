@@ -39,9 +39,9 @@
         import * as Lucide from 'lucide-react';
         
         const { 
-          Calendar, ShoppingCart, BookOpen, RefreshCw, ChefHat, Info, 
+          Calendar, ShoppingCart, BookOpen, RefreshCw, Info, 
           X, CalendarDays, Plus, Upload, Trash2, Save, Users,
-          Loader2, CheckCircle2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock
+          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock
         } = Lucide;
 
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
@@ -51,7 +51,7 @@
         // =========================================================================
         // 1. KLISTRA IN DIN GOOGLE GEMINI AI-NYCKEL HÄR (För PDF & Inspiration)
         // =========================================================================
-        const apiKey = "AIzaSyAH3JQom9CdQlcW013B96ibBvGzj2RtEZM"; 
+        const apiKey = "AIzaSyCSsSDg67scf6ih9mVv9FwUumyazC5LxsE"; 
         
         // =========================================================================
         // 2. DIN FIREBASE CONFIG (För familjedelning)
@@ -72,7 +72,7 @@
 
         try {
           const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-          const finalConfig = myFirebaseConfig || (configStr ? JSON.parse(configStr) : null);
+          const finalConfig = (myFirebaseConfig && myFirebaseConfig.apiKey) ? myFirebaseConfig : (configStr ? JSON.parse(configStr) : null);
           
           if (finalConfig && Object.keys(finalConfig).length > 0) {
             const app = initializeApp(finalConfig);
@@ -346,14 +346,13 @@
           instructions: r[6]
         }));
 
-        export default function App() {
+        const App = () => {
           const [activeTab, setActiveTab] = useState('recipes'); 
           const [toastMessage, setToastMessage] = useState(null);
           
           const [user, setUser] = useState(null);
           const [isDbLoaded, setIsDbLoaded] = useState(false);
 
-          // Familjedelning & Lås-funktion
           const [householdId, setHouseholdId] = useState(() => localStorage.getItem('smartMatsedel_householdId') || '');
           const [showShareModal, setShowShareModal] = useState(false);
           const [isPlanLocked, setIsPlanLocked] = useState(() => localStorage.getItem('smartMatsedel_planLocked') === 'true');
@@ -367,13 +366,13 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
           
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v31');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v100');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
               localStorage.removeItem('smartMatsedel_mealPlan');
               localStorage.removeItem('smartMatsedel_planType');
               localStorage.removeItem('smartMatsedel_checkedListItems');
-              localStorage.setItem('smartMatsedel_cleared_v31', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v100', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
@@ -413,20 +412,18 @@
                   try {
                     await signInWithCustomToken(auth, __initial_auth_token);
                   } catch (tokenErr) {
-                    console.warn("Token-mismatch. Faller tillbaka på anonym inloggning.");
                     await signInAnonymously(auth);
                   }
                 } else {
                   await signInAnonymously(auth);
                 }
-              } catch(e) { console.error("Auth error:", e); }
+              } catch(e) {}
             };
             initAuth();
             const unsubscribe = onAuthStateChanged(auth, setUser);
             return () => unsubscribe();
           }, []);
 
-          // Realtids-synkning med Firebase (HARD SYNC)
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
@@ -446,7 +443,6 @@
               }
               setIsDbLoaded(true);
             }, (err) => {
-              console.error("Firestore error:", err);
               setIsDbLoaded(true);
             });
 
@@ -458,9 +454,7 @@
             try {
               const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
               await setDoc(docRef, updates, { merge: true });
-            } catch (err) {
-              console.error("DB Save Error:", err);
-            }
+            } catch (err) {}
           };
 
           useEffect(() => { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); }, [recipes]);
@@ -490,9 +484,9 @@
               if (outcome === 'accepted') setDeferredPrompt(null);
             } else {
               if (isIOS) {
-                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten (fyrkant med pil) och välj 'Lägg till på hemskärmen'.");
+                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten och välj 'Lägg till på hemskärmen'.");
               } else {
-                showToast("På Android: Tryck på webbläsarens meny (tre prickar) och välj 'Lägg till på startskärmen'.");
+                showToast("På Android: Tryck på webbläsarens meny och välj 'Lägg till på startskärmen'.");
               }
             }
           };
@@ -540,6 +534,12 @@
             showToast(newState ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
           };
 
+          useEffect(() => {
+            if (isDbLoaded && mealPlan.length === 0 && recipes.length > 0) {
+              generatePlan('week', recipes);
+            }
+          }, [isDbLoaded, recipes, mealPlan.length]);
+
           const swapDayRecipe = (index) => {
             if (recipes.length === 0) return;
             
@@ -571,7 +571,16 @@
             for (let i = 0; i < maxRetries; i++) {
               try {
                 const response = await fetch(url, options);
-                if (!response.ok) throw new Error(`HTTP error!`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errMsg = errorText;
+                    try {
+                        const parsed = JSON.parse(errorText);
+                        errMsg = parsed.error?.message || errorText;
+                    } catch(e) {}
+                    console.error(`API Fel (Försök ${i+1}) Status ${response.status}:`, errMsg);
+                    throw new Error(errMsg || `HTTP error ${response.status}`);
+                }
                 return await response.json();
               } catch (error) {
                 if (i === maxRetries - 1) throw error;
@@ -583,7 +592,15 @@
           const handlePdfUpload = async (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            if (file.type !== 'application/pdf') { showToast("Endast PDF-filer stöds."); return; }
+            
+            if (file.type !== 'application/pdf') { 
+              showToast("Endast PDF-filer stöds."); 
+              return; 
+            }
+            if (file.size > 10 * 1024 * 1024) { 
+              showToast("PDF-filen är för stor (max 10MB)."); 
+              return; 
+            }
 
             setIsUploadingPdf(true);
             showToast("Läser in PDF... (Detta tar ca 10 sekunder)");
@@ -594,36 +611,44 @@
                 try {
                   const base64Data = reader.result.split(',')[1];
                   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                  const promptText = `Extrahera recept från PDF. Svara ENDAST med en giltig JSON-array med objekt. Ingen markdown runtomkring. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.`;
+                  const promptText = `Extrahera recept från PDF. Svara ENDAST med en giltig JSON-array med objekt. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.
+Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time": "...", "ingredients": [ {"name": "...", "amount": 1, "unit": "st"} ], "instructions": "..." }`;
 
                   const payload = {
                     contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
                     generationConfig: { 
-                        temperature: 0.1, responseMimeType: "application/json", 
-                        responseSchema: {
-                          type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, protein: { type: "STRING" }, collection: { type: "STRING" }, time: { type: "STRING" }, ingredients: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, amount: { type: "NUMBER" }, unit: { type: "STRING" } }, required: ["name", "amount", "unit"] } }, instructions: { type: "STRING" } }, required: ["name", "protein", "collection", "time", "ingredients", "instructions"] }
-                        }
+                        temperature: 0.1, 
+                        responseMimeType: "application/json"
                     }
                   };
 
                   const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                   const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                  let cleanText = rawText || "[]";
-                  cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
                   
-                  // Skydd mot parse-fel om AI:n är pratig
+                  if (!rawText) throw new Error("Tomt svar från AI");
+                  
+                  let cleanText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
                   const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
                   if (arrayMatch) { cleanText = arrayMatch[0]; }
 
-                  const parsedRecipes = JSON.parse(cleanText);
-                  const recipesWithIds = parsedRecipes.map(r => ({ ...r, id: 'pdf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) }));
+                  let parsedRecipes = JSON.parse(cleanText);
+
+                  if (!Array.isArray(parsedRecipes)) {
+                      parsedRecipes = [parsedRecipes];
+                  }
+
+                  const recipesWithIds = parsedRecipes.map(r => ({ 
+                      ...r, 
+                      id: 'pdf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                      ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+                      instructions: r.instructions || ''
+                  }));
                   
                   const newRecipes = [...recipes, ...recipesWithIds];
                   setRecipes(newRecipes);
                   updateDb({ recipes: newRecipes });
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
-                  console.error(err);
                   showToast(`Fel vid import. (Kunde inte läsa PDF)`);
                 } finally {
                   setIsUploadingPdf(false);
@@ -646,8 +671,7 @@
               const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
-                Svara ENDAST med ett giltigt JSON-objekt. Inga extra tecken. 
-                Objektet MÅSTE ha följande struktur och egenskaper:
+                Svara ENDAST med ett giltigt JSON-objekt:
                 {
                   "name": "Namn på rätten",
                   "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
@@ -662,20 +686,29 @@
 
               const payload = {
                 contents: [{ role: "user", parts: [{ text: promptText }] }],
-                generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+                generationConfig: { 
+                    temperature: 0.7, 
+                    responseMimeType: "application/json"
+                }
               };
 
               const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-              let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-              rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
               
-              // Felsäker JSON parse
-              const objectMatch = rawText.match(/\{[\s\S]*\}/);
-              if (objectMatch) { rawText = objectMatch[0]; }
+              if (!rawText) throw new Error("Tomt svar från AI");
               
-              const parsed = JSON.parse(rawText);
+              let cleanText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const objectMatch = cleanText.match(/\{[\s\S]*\}/);
+              if (objectMatch) { cleanText = objectMatch[0]; }
               
-              setInspiredRecipe({ ...parsed, id: 'insp_' + Date.now() });
+              let parsed = JSON.parse(cleanText);
+              
+              setInspiredRecipe({ 
+                  ...parsed, 
+                  id: 'insp_' + Date.now(),
+                  ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients : [],
+                  instructions: parsed.instructions || ''
+              });
               showToast("Receptet är klart!");
             } catch (err) {
               showToast("Kunde tyvärr inte skapa ett recept just nu. Försök igen.");
@@ -940,6 +973,11 @@
             const handleScanRecipe = async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
+              
+              if (file.size > 10 * 1024 * 1024) { 
+                  showToast("Bilden är för stor (max 10MB)."); 
+                  return; 
+              }
 
               setIsScanning(true);
               showToast("Tittar på bilden... Detta kan ta en liten stund.");
@@ -955,23 +993,15 @@
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
                       Extrahera receptet från bilden.
-                      Svara ENDAST med ett giltigt JSON-objekt. 
-                      Objektet MÅSTE ha följande struktur och egenskaper:
-                      {
-                        "name": "Namn på rätten",
-                        "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
-                        "collection": "Spaghetti- & pastarätter" ELLER "Potatisrätter" ELLER "Risrätter" ELLER "Soppor" ELLER "Övriga vardagsrätter" ELLER "Helgmat",
-                        "time": "t.ex. 30 min",
-                        "ingredients": [
-                          { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
-                        ],
-                        "instructions": "1. Gör så här...\\n2. Nästa steg..."
-                      }
+                      Svara ENDAST med ett giltigt JSON-objekt enligt schemat.
                     `;
 
                     const payload = {
                       contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: file.type, data: base64Data } }] }],
-                      generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                      generationConfig: { 
+                          temperature: 0.1, 
+                          responseMimeType: "application/json"
+                      }
                     };
 
                     const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
