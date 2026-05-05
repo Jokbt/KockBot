@@ -49,9 +49,9 @@
         import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // =========================================================================
-        // 1. KLISTRA IN DIN GOOGLE GEMINI AI-NYCKEL HÄR (För PDF & Inspiration)
+        // 1. KLISTRA IN DIN GOOGLE GEMINI AI-NYCKEL HÄR (ELLER LÄMNA TOM FÖR POPUP)
         // =========================================================================
-        const apiKey = "AIzaSyCSsSDg67scf6ih9mVv9FwUumyazC5LxsE"; 
+        const apiKey = ""; 
         
         // =========================================================================
         // 2. DIN FIREBASE CONFIG (För familjedelning)
@@ -121,9 +121,22 @@
            return FALLBACK_IMAGES[Math.abs(hash) % FALLBACK_IMAGES.length];
         };
 
-        const getRecipeImage = (name, collection) => {
+        const getRecipeImage = (recipe) => {
+          let name = recipe.name || '';
+          let seed = 0;
+          for (let i = 0; i < name.length; i++) {
+            seed = name.charCodeAt(i) + ((seed << 5) - seed);
+          }
+          seed = Math.abs(seed);
+
+          // Om AI:n har genererat en specifik bildbeskrivning (från PDF eller inspiration)
+          if (recipe.imagePrompt) {
+              const prompt = `${recipe.imagePrompt}, professional food photography, appetizing, highly detailed, restaurant plating, absolutely no text, no watermark`;
+              return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true&seed=${seed}`;
+          }
+
+          // Annars använd fallback översättning av namnet
           let translated = name.toLowerCase();
-          
           const dict = {
             'rosépeppargryta': 'creamy pink peppercorn stew',
             'rosépeppar': 'pink peppercorn',
@@ -215,17 +228,11 @@
           }
           
           let context = "delicious food plate";
-          if(collection === "Soppor") context = "creamy soup in a bowl";
-          else if(collection === "Spaghetti- & pastarätter") context = "pasta dish in a deep plate";
+          if(recipe.collection === "Soppor") context = "creamy soup in a bowl";
+          else if(recipe.collection === "Spaghetti- & pastarätter") context = "pasta dish in a deep plate";
 
-          let seed = 0;
-          for (let i = 0; i < name.length; i++) {
-            seed = name.charCodeAt(i) + ((seed << 5) - seed);
-          }
-          seed = Math.abs(seed);
-
-          const prompt = `Professional food photography of ${translated}, ${context}, appetizing, realistic, highly detailed, restaurant plating, absolutely no text, no letters, no watermark`;
-          return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true&seed=${seed}`;
+          const finalPrompt = `Professional food photography of ${translated}, ${context}, appetizing, realistic, highly detailed, restaurant plating, absolutely no text, no letters, no watermark`;
+          return `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=800&height=600&nologo=true&seed=${seed}`;
         };
 
         const RobotLogo = () => (
@@ -396,6 +403,56 @@
           const [isUploadingPdf, setIsUploadingPdf] = useState(false);
           const fileInputRef = useRef(null);
 
+          // AI Scheman för garanterat korrekta JSON-svar från Gemini API
+          const RECIPE_SCHEMA = {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING" },
+              protein: { type: "STRING" },
+              collection: { type: "STRING" },
+              time: { type: "STRING" },
+              ingredients: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    name: { type: "STRING" },
+                    amount: { type: "NUMBER" },
+                    unit: { type: "STRING" }
+                  },
+                  required: ["name", "amount", "unit"]
+                }
+              },
+              instructions: { type: "STRING" },
+              imagePrompt: { type: "STRING", description: "A detailed prompt in english for an image generator representing this dish" }
+            },
+            required: ["name", "protein", "collection", "time", "ingredients", "instructions"]
+          };
+          
+          const PDF_SCHEMA = {
+            type: "ARRAY",
+            items: RECIPE_SCHEMA
+          };
+
+          // NY FUNKTION FÖR ATT HANTERA API-NYCKEL TILL GITHUB
+          const getApiKey = () => {
+            // Om nyckeln är hårdkodad och ser giltig ut (över 5 tecken), använd den
+            if (apiKey && apiKey.length > 5) return apiKey;
+            
+            // Annars, leta i localStorage
+            let storedKey = localStorage.getItem('smartMatsedel_apiKey');
+            if (!storedKey || storedKey.length < 5) {
+              // Finns den inte lokalt, be användaren om den
+              storedKey = prompt("Vänligen klistra in din Google Gemini API-nyckel för att AI-funktionerna ska fungera.\n\nDu kan hämta en gratis på: aistudio.google.com/app/apikey");
+              if (storedKey && storedKey.length > 5) {
+                localStorage.setItem('smartMatsedel_apiKey', storedKey);
+              } else {
+                return null;
+              }
+            }
+            return storedKey;
+          };
+
           useEffect(() => {
             if (!householdId) {
               const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -412,18 +469,20 @@
                   try {
                     await signInWithCustomToken(auth, __initial_auth_token);
                   } catch (tokenErr) {
+                    console.warn("Token-mismatch. Faller tillbaka på anonym inloggning.");
                     await signInAnonymously(auth);
                   }
                 } else {
                   await signInAnonymously(auth);
                 }
-              } catch(e) {}
+              } catch(e) { console.error("Auth error:", e); }
             };
             initAuth();
             const unsubscribe = onAuthStateChanged(auth, setUser);
             return () => unsubscribe();
           }, []);
 
+          // Realtids-synkning med Firebase (HARD SYNC)
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
@@ -443,6 +502,7 @@
               }
               setIsDbLoaded(true);
             }, (err) => {
+              console.error("Firestore error:", err);
               setIsDbLoaded(true);
             });
 
@@ -454,7 +514,9 @@
             try {
               const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
               await setDoc(docRef, updates, { merge: true });
-            } catch (err) {}
+            } catch (err) {
+              console.error("DB Save Error:", err);
+            }
           };
 
           useEffect(() => { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); }, [recipes]);
@@ -484,9 +546,9 @@
               if (outcome === 'accepted') setDeferredPrompt(null);
             } else {
               if (isIOS) {
-                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten och välj 'Lägg till på hemskärmen'.");
+                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten (fyrkant med pil) och välj 'Lägg till på hemskärmen'.");
               } else {
-                showToast("På Android: Tryck på webbläsarens meny och välj 'Lägg till på startskärmen'.");
+                showToast("På Android: Tryck på webbläsarens meny (tre prickar) och välj 'Lägg till på startskärmen'.");
               }
             }
           };
@@ -534,6 +596,7 @@
             showToast(newState ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
           };
 
+          // Auto-generera om databasen är tom och vi saknar lokal data.
           useEffect(() => {
             if (isDbLoaded && mealPlan.length === 0 && recipes.length > 0) {
               generatePlan('week', recipes);
@@ -602,6 +665,13 @@
               return; 
             }
 
+            const activeKey = getApiKey();
+            if (!activeKey) {
+                showToast("Du måste ange en API-nyckel för att använda denna funktion.");
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                return;
+            }
+
             setIsUploadingPdf(true);
             showToast("Läser in PDF... (Detta tar ca 10 sekunder)");
 
@@ -610,15 +680,18 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                  const promptText = `Extrahera recept från PDF. Svara ENDAST med en giltig JSON-array med objekt. "protein" måste vara kött, fisk, veg eller kyckling. "collection" måste vara Spaghetti- & pastarätter, Potatisrätter, Risrätter, Soppor, Övriga vardagsrätter eller Helgmat.
-Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time": "...", "ingredients": [ {"name": "...", "amount": 1, "unit": "st"} ], "instructions": "..." }`;
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
+                  
+                  // Uppdaterad prompt för att även bygga bildprompts från PDF
+                  const promptText = `Extrahera recept från PDF. Svara ENDAST med data som följer JSON schemat exakt. 
+Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska i fältet 'imagePrompt' (t.ex. 'close up of spaghetti carbonara with parmesan and basil on top'). Om inga bilder finns, skriv en bra engelsk beskrivning av maträtten.`;
 
                   const payload = {
                     contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
                     generationConfig: { 
                         temperature: 0.1, 
-                        responseMimeType: "application/json"
+                        responseMimeType: "application/json",
+                        responseSchema: PDF_SCHEMA
                     }
                   };
 
@@ -649,7 +722,8 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
                   updateDb({ recipes: newRecipes });
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
-                  showToast(`Fel vid import. (Kunde inte läsa PDF)`);
+                  console.error(err);
+                  showToast(`Fel vid import. Vänligen försök igen.`);
                 } finally {
                   setIsUploadingPdf(false);
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -663,32 +737,31 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
 
           const handleGenerateInspiration = async () => {
             if (!inspirationQuery.trim()) { showToast("Skriv in en råvara eller idé först!"); return; }
+            
+            const activeKey = getApiKey();
+            if (!activeKey) {
+                showToast("Du måste ange en API-nyckel för att använda denna funktion.");
+                return;
+            }
+
             setIsGeneratingInspiration(true);
             setInspiredRecipe(null);
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
-                Svara ENDAST med ett giltigt JSON-objekt:
-                {
-                  "name": "Namn på rätten",
-                  "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
-                  "collection": "Spaghetti- & pastarätter" ELLER "Potatisrätter" ELLER "Risrätter" ELLER "Soppor" ELLER "Övriga vardagsrätter" ELLER "Helgmat",
-                  "time": "t.ex. 30 min",
-                  "ingredients": [
-                    { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
-                  ],
-                  "instructions": "1. Gör så här...\\n2. Nästa steg..."
-                }
+                Svara ENDAST med data som följer JSON schemat exakt.
+                I fältet 'imagePrompt', skriv en detaljerad engelsk prompt för att generera en väldigt aptitlig bild av denna maträtt.
               `;
 
               const payload = {
                 contents: [{ role: "user", parts: [{ text: promptText }] }],
                 generationConfig: { 
                     temperature: 0.7, 
-                    responseMimeType: "application/json"
+                    responseMimeType: "application/json",
+                    responseSchema: RECIPE_SCHEMA
                 }
               };
 
@@ -711,6 +784,7 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
               });
               showToast("Receptet är klart!");
             } catch (err) {
+              console.error("Inspiration Error:", err);
               showToast("Kunde tyvärr inte skapa ett recept just nu. Försök igen.");
             } finally {
               setIsGeneratingInspiration(false);
@@ -979,6 +1053,13 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
                   return; 
               }
 
+              const activeKey = getApiKey();
+              if (!activeKey) {
+                  showToast("Du måste ange en API-nyckel för att använda denna funktion.");
+                  if (cameraInputRef.current) cameraInputRef.current.value = '';
+                  return;
+              }
+
               setIsScanning(true);
               showToast("Tittar på bilden... Detta kan ta en liten stund.");
 
@@ -988,19 +1069,20 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
                       Extrahera receptet från bilden.
-                      Svara ENDAST med ett giltigt JSON-objekt enligt schemat.
+                      Svara ENDAST med data som följer JSON schemat exakt.
                     `;
 
                     const payload = {
                       contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: file.type, data: base64Data } }] }],
                       generationConfig: { 
                           temperature: 0.1, 
-                          responseMimeType: "application/json"
+                          responseMimeType: "application/json",
+                          responseSchema: RECIPE_SCHEMA
                       }
                     };
 
@@ -1167,7 +1249,7 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
                            </div>
                         )}
                         <img 
-                          src={getRecipeImage(recipe.name, recipe.collection)} 
+                          src={getRecipeImage(recipe)} 
                           alt={recipe.name} 
                           className={`w-full h-full object-cover transition-opacity duration-500 ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
                           onLoad={() => setImgLoading(false)}
@@ -1514,7 +1596,7 @@ Schema per recept: { "name": "...", "protein": "...", "collection": "...", "time
                           
                           <div className="w-full h-40 sm:h-64 bg-slate-100 rounded-2xl mb-6 overflow-hidden relative">
                              <img 
-                              src={getRecipeImage(inspiredRecipe.name, inspiredRecipe.collection)} 
+                              src={getRecipeImage(inspiredRecipe)} 
                               alt={inspiredRecipe.name} 
                               className="w-full h-full object-cover transition-opacity duration-500"
                               onError={(e) => {
