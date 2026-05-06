@@ -401,6 +401,10 @@
           const [isUploadingPdf, setIsUploadingPdf] = useState(false);
           const fileInputRef = useRef(null);
 
+          const [deferredPrompt, setDeferredPrompt] = useState(null);
+          const [isIOS, setIsIOS] = useState(false);
+          const [isStandalone, setIsStandalone] = useState(false);
+
           // NY FUNKTION FÖR ATT HANTERA API-NYCKEL TILL GITHUB
           const getApiKey = () => {
             if (apiKey && apiKey.length > 5) return apiKey;
@@ -485,6 +489,34 @@
           useEffect(() => { localStorage.setItem('smartMatsedel_planType', planType); }, [planType]);
           useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
           useEffect(() => { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); }, [isPlanLocked]);
+
+          useEffect(() => {
+            const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            setIsIOS(ios);
+            const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            setIsStandalone(standalone);
+
+            const handleBeforeInstallPrompt = (e) => {
+              e.preventDefault();
+              setDeferredPrompt(e);
+            };
+            window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+          }, []);
+
+          const installApp = async () => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              if (outcome === 'accepted') setDeferredPrompt(null);
+            } else {
+              if (isIOS) {
+                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten (fyrkant med pil) och välj 'Lägg till på hemskärmen'.");
+              } else {
+                showToast("På Android: Tryck på webbläsarens meny (tre prickar) och välj 'Lägg till på startskärmen'.");
+              }
+            }
+          };
 
           const showToast = (msg) => {
             setToastMessage(msg);
@@ -613,7 +645,7 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${activeKey}`;
                   
                   const promptText = `Extrahera recept från PDF. Svara ENDAST med ett giltigt JSON-format. MÅSTE vara en array (lista) med objekt exakt enligt detta mönster:
 [
@@ -698,7 +730,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
                 Svara ENDAST med ett giltigt JSON-objekt enligt detta mönster:
@@ -964,7 +996,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
@@ -1268,6 +1300,16 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                             <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><BookOpen size={32} className="text-emerald-500" /></div>
                             <h2 className="text-2xl font-bold text-slate-800 mb-2">Din receptbok är tom</h2>
                             <button onClick={() => setActiveTab('recipes')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors mt-4">Gå till Receptboken</button>
+                        </div>
+                    ) : mealPlan.length === 0 ? (
+                        <div className="text-center py-20 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><Calendar size={32} className="text-emerald-500" /></div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Ingen meny skapad ännu</h2>
+                            <p className="text-slate-500 mb-6">Klicka nedan för att slumpa fram er första matsedel!</p>
+                            <div className="flex justify-center gap-3">
+                                <button onClick={() => generatePlan('week')} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition-colors">1 Vecka</button>
+                                <button onClick={() => generatePlan('month')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors">4 Veckor</button>
+                            </div>
                         </div>
                     ) : (
                         <>
