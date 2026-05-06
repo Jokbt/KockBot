@@ -41,7 +41,7 @@
         const { 
           Calendar, ShoppingCart, BookOpen, RefreshCw, Info, 
           X, CalendarDays, Plus, Upload, Trash2, Save, Users,
-          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock
+          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock, ChefHat
         } = Lucide;
 
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
@@ -354,43 +354,41 @@
         }));
 
         const App = () => {
-          const [activeTab, setActiveTab] = useState('recipes'); 
+          const [activeTab, setActiveTab] = useState('plan'); 
+          const [planType, setPlanType] = useState('week'); 
           const [toastMessage, setToastMessage] = useState(null);
           
           const [user, setUser] = useState(null);
           const [isDbLoaded, setIsDbLoaded] = useState(false);
 
+          // Familjedelning & Lås-funktion
           const [householdId, setHouseholdId] = useState(() => localStorage.getItem('smartMatsedel_householdId') || '');
           const [showShareModal, setShowShareModal] = useState(false);
           const [isPlanLocked, setIsPlanLocked] = useState(() => localStorage.getItem('smartMatsedel_planLocked') === 'true');
-          
-          const [deferredPrompt, setDeferredPrompt] = useState(null);
-          const [isIOS, setIsIOS] = useState(false);
-          const [isStandalone, setIsStandalone] = useState(false);
 
           const [inspirationQuery, setInspirationQuery] = useState('');
           const [isGeneratingInspiration, setIsGeneratingInspiration] = useState(false);
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
-          
+
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v100');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v200');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
               localStorage.removeItem('smartMatsedel_mealPlan');
               localStorage.removeItem('smartMatsedel_planType');
               localStorage.removeItem('smartMatsedel_checkedListItems');
-              localStorage.setItem('smartMatsedel_cleared_v100', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v200', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
             return saved ? JSON.parse(saved) : DEFAULT_RECIPES;
           });
 
-          const [planType, setPlanType] = useState(() => localStorage.getItem('smartMatsedel_planType') || 'week'); 
           const [mealPlan, setMealPlan] = useState(() => {
             const saved = localStorage.getItem('smartMatsedel_mealPlan');
             return saved ? JSON.parse(saved) : [];
           });
+          
           const [checkedListItems, setCheckedListItems] = useState(() => {
             const saved = localStorage.getItem('smartMatsedel_checkedListItems');
             return saved ? JSON.parse(saved) : {};
@@ -403,53 +401,12 @@
           const [isUploadingPdf, setIsUploadingPdf] = useState(false);
           const fileInputRef = useRef(null);
 
-          // AI Scheman för garanterat korrekta JSON-svar från Gemini API
-          const RECIPE_SCHEMA = {
-            type: "OBJECT",
-            properties: {
-              name: { type: "STRING" },
-              protein: { type: "STRING" },
-              collection: { type: "STRING" },
-              time: { type: "STRING" },
-              ingredients: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    name: { type: "STRING" },
-                    amount: { type: "NUMBER" },
-                    unit: { type: "STRING" }
-                  },
-                  required: ["name", "amount", "unit"]
-                }
-              },
-              instructions: { type: "STRING" },
-              imagePrompt: { type: "STRING", description: "A detailed prompt in english for an image generator representing this dish" }
-            },
-            required: ["name", "protein", "collection", "time", "ingredients", "instructions"]
-          };
-          
-          const PDF_SCHEMA = {
-            type: "OBJECT",
-            properties: {
-               recipes: {
-                   type: "ARRAY",
-                   items: RECIPE_SCHEMA
-               }
-            },
-            required: ["recipes"]
-          };
-
           // NY FUNKTION FÖR ATT HANTERA API-NYCKEL TILL GITHUB
           const getApiKey = () => {
-            // Om nyckeln är hårdkodad och ser giltig ut (över 5 tecken), använd den
             if (apiKey && apiKey.length > 5) return apiKey;
-            
-            // Annars, leta i localStorage
             let storedKey = localStorage.getItem('smartMatsedel_apiKey');
             if (!storedKey || storedKey.length < 5) {
-              // Finns den inte lokalt, be användaren om den
-              storedKey = prompt("Vänligen klistra in din Google Gemini API-nyckel för att AI-funktionerna ska fungera.\n\nDu kan hämta en gratis på: aistudio.google.com/app/apikey");
+              storedKey = prompt("Vänligen klistra in din Google Gemini API-nyckel för att AI-funktionerna ska fungera.\\n\\nDu kan hämta en gratis på: aistudio.google.com/app/apikey");
               if (storedKey && storedKey.length > 5) {
                 localStorage.setItem('smartMatsedel_apiKey', storedKey);
               } else {
@@ -467,6 +424,7 @@
             }
           }, [householdId]);
 
+          // Initiera Firebase Auth
           useEffect(() => {
             if (!auth) return;
             const initAuth = async () => {
@@ -475,20 +433,19 @@
                   try {
                     await signInWithCustomToken(auth, __initial_auth_token);
                   } catch (tokenErr) {
-                    console.warn("Token-mismatch. Faller tillbaka på anonym inloggning.");
                     await signInAnonymously(auth);
                   }
                 } else {
                   await signInAnonymously(auth);
                 }
-              } catch(e) { console.error("Auth error:", e); }
+              } catch(e) {}
             };
             initAuth();
             const unsubscribe = onAuthStateChanged(auth, setUser);
             return () => unsubscribe();
           }, []);
 
-          // Realtids-synkning med Firebase (HARD SYNC)
+          // Realtids-synkning med Firebase
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
@@ -508,7 +465,6 @@
               }
               setIsDbLoaded(true);
             }, (err) => {
-              console.error("Firestore error:", err);
               setIsDbLoaded(true);
             });
 
@@ -520,44 +476,15 @@
             try {
               const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
               await setDoc(docRef, updates, { merge: true });
-            } catch (err) {
-              console.error("DB Save Error:", err);
-            }
+            } catch (err) {}
           };
 
+          // Spara lokalt som fallback
           useEffect(() => { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); }, [recipes]);
           useEffect(() => { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); }, [mealPlan]);
           useEffect(() => { localStorage.setItem('smartMatsedel_planType', planType); }, [planType]);
           useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
           useEffect(() => { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); }, [isPlanLocked]);
-
-          useEffect(() => {
-            const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            setIsIOS(ios);
-            const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-            setIsStandalone(standalone);
-
-            const handleBeforeInstallPrompt = (e) => {
-              e.preventDefault();
-              setDeferredPrompt(e);
-            };
-            window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-            return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-          }, []);
-
-          const installApp = async () => {
-            if (deferredPrompt) {
-              deferredPrompt.prompt();
-              const { outcome } = await deferredPrompt.userChoice;
-              if (outcome === 'accepted') setDeferredPrompt(null);
-            } else {
-              if (isIOS) {
-                showToast("På iPhone: Tryck på 'Dela'-ikonen i botten (fyrkant med pil) och välj 'Lägg till på hemskärmen'.");
-              } else {
-                showToast("På Android: Tryck på webbläsarens meny (tre prickar) och välj 'Lägg till på startskärmen'.");
-              }
-            }
-          };
 
           const showToast = (msg) => {
             setToastMessage(msg);
@@ -576,6 +503,7 @@
             
             for (let i = 0; i < numDays; i++) {
               const targetProtein = CATEGORY_CYCLE[i % CATEGORY_CYCLE.length]; 
+              
               let candidates = availableRecipes.filter(r => r.protein === targetProtein);
               if (candidates.length === 0) candidates = availableRecipes;
 
@@ -602,9 +530,9 @@
             showToast(newState ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
           };
 
-          // Auto-generera om databasen är tom och vi saknar lokal data.
           useEffect(() => {
-            if (isDbLoaded && mealPlan.length === 0 && recipes.length > 0) {
+            // Generate init plan if empty (but only once db loaded or if db fails)
+            if (mealPlan.length === 0 && recipes.length > 0 && isDbLoaded) {
               generatePlan('week', recipes);
             }
           }, [isDbLoaded, recipes, mealPlan.length]);
@@ -661,10 +589,9 @@
           const handlePdfUpload = async (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-            
-            if (file.type !== 'application/pdf') { 
-              showToast("Endast PDF-filer stöds."); 
-              return; 
+
+            if (file.type !== 'application/pdf') {
+              showToast("Endast PDF-filer stöds."); return;
             }
             if (file.size > 10 * 1024 * 1024) { 
               showToast("PDF-filen är för stor (max 10MB)."); 
@@ -686,18 +613,27 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
                   
-                  // Uppdaterad prompt för att även bygga bildprompts från PDF
-                  const promptText = `Extrahera recept från PDF. Svara ENDAST med data som följer JSON schemat exakt. 
-Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska i fältet 'imagePrompt' (t.ex. 'close up of spaghetti carbonara with parmesan and basil on top'). Om inga bilder finns, skriv en bra engelsk beskrivning av maträtten.`;
+                  const promptText = `Extrahera recept från PDF. Svara ENDAST med ett giltigt JSON-format. MÅSTE vara en array (lista) med objekt exakt enligt detta mönster:
+[
+  {
+    "name": "Receptets namn",
+    "protein": "kött" eller "fisk" eller "veg" eller "kyckling",
+    "collection": "Spaghetti- & pastarätter" eller "Potatisrätter" eller "Risrätter" eller "Soppor" eller "Övriga vardagsrätter" eller "Helgmat",
+    "time": "t.ex. 30 min",
+    "ingredients": [ {"name": "Ingrediens", "amount": 1, "unit": "st"} ],
+    "instructions": "1. Steg 1...",
+    "imagePrompt": "A detailed prompt in english for an image generator representing this dish"
+  }
+]
+Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePrompt.`;
 
                   const payload = {
                     contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64Data } }] }],
                     generationConfig: { 
                         temperature: 0.1, 
-                        responseMimeType: "application/json",
-                        responseSchema: PDF_SCHEMA
+                        responseMimeType: "application/json"
                     }
                   };
 
@@ -707,19 +643,21 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                   if (!rawText) throw new Error("Tomt svar från AI");
                   
                   let cleanText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-                  const objectMatch = cleanText.match(/\{[\s\S]*\}/);
-                  if (objectMatch) { cleanText = objectMatch[0]; }
+                  const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
+                  if (arrayMatch) { cleanText = arrayMatch[0]; }
 
                   let parsedData = JSON.parse(cleanText);
-                  let parsedRecipes = parsedData.recipes || [];
-
-                  if (!Array.isArray(parsedRecipes)) {
-                     if (parsedData.name) {
-                         parsedRecipes = [parsedData];
-                     } else {
-                         parsedRecipes = [];
-                     }
+                  let parsedRecipes = [];
+                  
+                  if (Array.isArray(parsedData)) {
+                      parsedRecipes = parsedData;
+                  } else if (parsedData.recipes && Array.isArray(parsedData.recipes)) {
+                      parsedRecipes = parsedData.recipes;
+                  } else if (parsedData.name) {
+                      parsedRecipes = [parsedData];
                   }
+
+                  if (parsedRecipes.length === 0) throw new Error("Inga recept hittades");
 
                   const recipesWithIds = parsedRecipes.map(r => ({ 
                       ...r, 
@@ -734,7 +672,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
                   console.error(err);
-                  showToast(`Fel vid import: ${err.message || 'Kunde inte läsa filen.'}`);
+                  showToast(`Fel vid import: Kunde inte läsa filen.`);
                 } finally {
                   setIsUploadingPdf(false);
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -760,19 +698,28 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
-                Svara ENDAST med data som följer JSON schemat exakt.
-                I fältet 'imagePrompt', skriv en detaljerad engelsk prompt för att generera en väldigt aptitlig bild av denna maträtt.
+                Svara ENDAST med ett giltigt JSON-objekt enligt detta mönster:
+                {
+                  "name": "Namn på rätten",
+                  "protein": "kött" eller "fisk" eller "veg" eller "kyckling",
+                  "collection": "Spaghetti- & pastarätter" eller "Potatisrätter" eller "Risrätter" eller "Soppor" eller "Övriga vardagsrätter" eller "Helgmat",
+                  "time": "t.ex. 30 min",
+                  "ingredients": [
+                    { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
+                  ],
+                  "instructions": "1. Gör så här...\\n2. Nästa steg...",
+                  "imagePrompt": "A detailed prompt in english for an image generator representing this dish"
+                }
               `;
 
               const payload = {
                 contents: [{ role: "user", parts: [{ text: promptText }] }],
                 generationConfig: { 
                     temperature: 0.7, 
-                    responseMimeType: "application/json",
-                    responseSchema: RECIPE_SCHEMA
+                    responseMimeType: "application/json"
                 }
               };
 
@@ -813,55 +760,9 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             showToast("Det nya receptet sparades i din bok!");
           };
 
+          // Normaliseringsfunktioner för varukorgen
           const normalizeName = (name) => {
             let n = name.toLowerCase().trim();
-            n = n.replace(/^(färska|färsk|finhackad|hackad|hackade|strimlad|strimlade|skivad|skivade|tärnad|tärnade|torkad|torkade|riven|rivna|hel|hela|gula|gul|röda|röd|gröna|grön|lätt)\s+/i, '');
-            n = n.replace(/\s*\(.*?\)/g, ''); 
-            n = n.trim();
-            if (n.match(/crème fraiche|creme fraiche|crème fraîche/i)) {
-               if (n.match(/tomat/i) && n.match(/basilika/i)) return 'Creme fraiche tomat basilika';
-               if (n.match(/parmesan/i) && n.match(/vitlök/i)) return 'Creme fraiche parmesan vitlök';
-               if (n.match(/örter/i)) return 'Creme fraiche franska örter';
-               if (n.match(/paprika/i) && n.match(/chili/i)) return 'Creme fraiche paprika chili';
-               return 'Creme fraiche';
-            }
-            if (n.match(/^grädde$|vispgrädde/i)) return 'Vispgrädde';
-            if (n.match(/matlagningsgrädde/i)) return 'Matlagningsgrädde';
-            if (n.match(/^mjölk/i)) return 'Mjölk';
-            if (n.match(/köttbuljong/i)) return 'Köttbuljong';
-            if (n.match(/grönsaksbuljong/i)) return 'Grönsaksbuljong';
-            if (n.match(/kycklingbuljong|hönsbuljong/i)) return 'Kycklingbuljong';
-            if (n.match(/kalvfond/i)) return 'Kalvfond';
-            if (n.match(/parmesan/i)) return 'Parmesanost';
-            if (n.match(/pecorino/i)) return 'Pecorinoost';
-            if (n.match(/mozzarella/i)) return 'Mozzarella';
-            if (n.match(/fetaost/i)) return 'Fetaost';
-            if (n.match(/riven ost|gratängost/i)) return 'Riven ost';
-            if (n.match(/kycklinglårfilé/i)) return 'Kycklinglårfilé';
-            if (n.match(/kycklingfilé|kycklingbröst/i)) return 'Kycklingfilé';
-            if (n.match(/blandfärs/i)) return 'Blandfärs';
-            if (n.match(/nötfärs|köttfärs/i)) return 'Nötfärs';
-            if (n.match(/kycklingfärs/i)) return 'Kycklingfärs';
-            if (n.match(/bacon/i)) return 'Bacon';
-            if (n.match(/falukorv/i)) return 'Falukorv';
-            if (n.match(/vitlök/i)) return 'Vitlök'; 
-            if (n.match(/^lök$|^lökar$/i)) return 'Gul lök';
-            if (n.match(/krossade tomater/i)) return 'Krossade tomater';
-            if (n.match(/tomatpuré/i)) return 'Tomatpuré';
-            if (n.match(/körsbärstomat|cocktailtomat/i)) return 'Körsbärstomater';
-            if (n.match(/^tomat$|^tomater$/i)) return 'Tomater';
-            if (n.match(/champinjon/i)) return 'Champinjoner';
-            if (n.match(/potatis/i) && !n.match(/söt|gratäng|mos|klyft/i)) return 'Potatis';
-            if (n.match(/äggulor|^ägg$/i)) return 'Ägg';
-            if (n.match(/smör/i) && !n.match(/jordnöt/i)) return 'Smör';
-            if (n.match(/olivolja/i)) return 'Olivolja';
-            if (n.match(/rapsolja|matolja/i)) return 'Rapsolja';
-            if (n.match(/vetemjöl/i)) return 'Vetemjöl';
-            if (n.match(/majsstärkelse|maizena/i)) return 'Majsstärkelse';
-            if (n.match(/soja|soya/i)) return 'Japansk soja';
-            if (n.match(/pancetta/i)) return 'Pancetta';
-            if (n.match(/salsiccia/i)) return 'Salsiccia';
-            
             n = n.replace(/klyftor$/i, 'klyfta');
             n = n.replace(/lökar$/i, 'lök');
             n = n.replace(/tomater$/i, 'tomat');
@@ -875,30 +776,19 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             n = n.replace(/påsar$/i, 'påse');
             n = n.replace(/krukor$/i, 'kruka');
             n = n.replace(/halvor$/i, 'halva');
-            n = n.replace(/korvar$/i, 'korv');
-            
+            n = n.replace(/^gula /i, 'gul ');
+            n = n.replace(/^röda /i, 'röd ');
+            n = n.replace(/^gröna /i, 'grön ');
+            n = n.replace(/^färska /i, 'färsk ');
             return n.charAt(0).toUpperCase() + n.slice(1);
           };
 
           const normalizeUnit = (unit) => {
             let u = unit.toLowerCase().trim();
-            if (u === 'klyftor' || u === 'klyfta' || u === 'stycken' || u === 'styck') return 'st';
-            if (u === 'förpackning' || u === 'förpackningar' || u === 'paket' || u === 'pkt' || u === 'ask' || u === 'askar') return 'förp';
+            if (u === 'klyftor' || u === 'klyfta') return 'st';
+            if (u === 'förpackning' || u === 'paket' || u === 'pkt') return 'förp';
             if (u === 'krukor') return 'kruka';
-            if (u === 'skivor' || u === 'skiva') return 'skiva';
-            if (u === 'burkar' || u === 'burk') return 'burk';
-            if (u === 'port' || u === 'portioner' || u === 'portion') return 'port';
-            if (u === 'g' || u === 'gram') return 'g';
-            if (u === 'kg' || u === 'kilo') return 'kg';
-            if (u === 'msk' || u === 'matskedar' || u === 'matsked') return 'msk';
-            if (u === 'tsk' || u === 'teskedar' || u === 'tesked') return 'tsk';
-            if (u === 'krm' || u === 'kryddmått') return 'krm';
-            if (u === 'l' || u === 'liter') return 'liter';
-            if (u === 'dl' || u === 'deciliter') return 'dl';
-            if (u === 'cl' || u === 'centiliter') return 'cl';
-            if (u === 'ml' || u === 'milliliter') return 'ml';
-            if (u === 'knippe' || u === 'knippen') return 'knippe';
-            if (u === 'näve' || u === 'nävar') return 'näve';
+            if (u === 'skivor') return 'skiva';
             return u;
           };
 
@@ -935,7 +825,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                 displayUnit = 'kg';
               }
               displayAmount = Math.round(displayAmount * 10) / 10;
-              parts.push(displayAmount + ' ' + displayUnit);
+              parts.push(`${displayAmount} ${displayUnit}`);
             }
             return parts.join(' + ');
           };
@@ -948,10 +838,9 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
 
           const handleCopyList = () => {
             if (shoppingList.length === 0) {
-                showToast("Listan är tom."); 
-                return;
+                showToast("Listan är tom."); return;
             }
-            const text = shoppingList.map(item => formatAmounts(item.amounts) + " " + item.name).join('\n');
+            const text = shoppingList.map(item => `${formatAmounts(item.amounts)} ${item.name}`).join('\n');
             const textArea = document.createElement("textarea");
             textArea.value = text;
             document.body.appendChild(textArea);
@@ -1058,11 +947,6 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             const handleScanRecipe = async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
-              
-              if (file.size > 10 * 1024 * 1024) { 
-                  showToast("Bilden är för stor (max 10MB)."); 
-                  return; 
-              }
 
               const activeKey = getApiKey();
               if (!activeKey) {
@@ -1080,20 +964,30 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
                       Extrahera receptet från bilden.
-                      Svara ENDAST med data som följer JSON schemat exakt.
+                      Svara ENDAST med ett giltigt JSON-objekt enligt detta mönster:
+                      {
+                        "name": "Namn på rätten",
+                        "protein": "kött" ELLER "fisk" ELLER "veg" ELLER "kyckling",
+                        "collection": "Spaghetti- & pastarätter" ELLER "Potatisrätter" ELLER "Risrätter" ELLER "Soppor" ELLER "Övriga vardagsrätter" ELLER "Helgmat",
+                        "time": "t.ex. 30 min",
+                        "ingredients": [
+                          { "name": "Ingrediens", "amount": 1.5, "unit": "dl" }
+                        ],
+                        "instructions": "1. Gör så här...\\n2. Nästa steg...",
+                        "imagePrompt": "A detailed prompt in english for an image generator representing this dish"
+                      }
                     `;
 
                     const payload = {
                       contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: file.type, data: base64Data } }] }],
                       generationConfig: { 
                           temperature: 0.1, 
-                          responseMimeType: "application/json",
-                          responseSchema: RECIPE_SCHEMA
+                          responseMimeType: "application/json"
                       }
                     };
 
@@ -1149,7 +1043,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                     
                     <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
                       <div>
-                        <h3 className="font-bold text-emerald-800">Har du receptet framför dig?</h3>
+                        <h3 className="font-bold text-emerald-800">Har du receptet framförজিৎ dig?</h3>
                         <p className="text-emerald-600 text-sm">Fota av ett papper eller en skärm så fyller vi i automatiskt!</p>
                       </div>
                       <div className="relative w-full sm:w-auto">
@@ -1327,21 +1221,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                 <div className="max-w-4xl mx-auto px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl shadow-md shadow-emerald-500/30 overflow-hidden bg-white border-2 border-emerald-500 flex-shrink-0 p-0.5">
-                        <RobotLogo />
+                      <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-md shadow-emerald-500/20">
+                        <ChefHat size={24} />
                       </div>
-                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
-                      
-                      <div className="flex items-center gap-2 ml-4">
-                        <button onClick={() => setShowShareModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-all border border-emerald-100 shadow-sm" title="Dela med familjen">
-                          <Users size={16} /> <span className="hidden sm:inline">Dela</span>
-                        </button>
-                        {!isStandalone && (
-                          <button onClick={installApp} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
-                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> <span className="hidden md:inline">App</span>
-                          </button>
-                        )}
-                      </div>
+                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">Smart Matsedel</h1>
                     </div>
                     
                     <div className="hidden md:flex bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
@@ -1354,10 +1237,8 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                       <button onClick={() => setActiveTab('recipes')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'recipes' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
                         <BookOpen size={18} /> Recept
                       </button>
-                      <button onClick={() => setActiveTab('inspiration')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'inspiration' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
-                        <Sparkles size={18} /> Inspiration
-                      </button>
                     </div>
+                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight sm:hidden mr-auto">Smart Matsedel</h1>
                   </div>
                 </div>
               </header>
@@ -1375,10 +1256,6 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                     <BookOpen size={24} className={activeTab === 'recipes' ? 'fill-emerald-50/50' : ''} />
                     <span className="text-[10px] font-bold">Recept</span>
                  </button>
-                 <button onClick={() => setActiveTab('inspiration')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'inspiration' ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    <Sparkles size={24} className={activeTab === 'inspiration' ? 'fill-emerald-50/50' : ''} />
-                    <span className="text-[10px] font-bold">Hitta på</span>
-                 </button>
               </div>
 
               <main className="max-w-4xl mx-auto px-4 py-8">
@@ -1392,33 +1269,14 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                             <h2 className="text-2xl font-bold text-slate-800 mb-2">Din receptbok är tom</h2>
                             <button onClick={() => setActiveTab('recipes')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors mt-4">Gå till Receptboken</button>
                         </div>
-                    ) : mealPlan.length === 0 ? (
-                        <div className="text-center py-20 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                            <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><Calendar size={32} className="text-emerald-500" /></div>
-                            <h2 className="text-2xl font-bold text-slate-800 mb-2">Ingen meny skapad ännu</h2>
-                            <p className="text-slate-500 mb-6">Klicka nedan för att slumpa fram er första matsedel!</p>
-                            <div className="flex justify-center gap-3">
-                                <button onClick={() => generatePlan('week')} className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition-colors">1 Vecka</button>
-                                <button onClick={() => generatePlan('month')} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors">4 Veckor</button>
-                            </div>
-                        </div>
                     ) : (
                         <>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                              <div className="flex items-center gap-3">
-                                <h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2>
-                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md hidden sm:block">ID: {householdId}</span>
-                                <button onClick={toggleLock} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm ${isPlanLocked ? 'bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                                  {isPlanLocked ? <><Lock size={14} /> Låst</> : <><Unlock size={14} /> Lås fast</>}
-                                </button>
+                              <div><h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2></div>
+                              <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
+                                  <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
+                                  <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
                               </div>
-                              
-                              {!isPlanLocked && (
-                                <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
-                                    <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
-                                    <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
-                                </div>
-                              )}
                             </div>
 
                             {mealPlan.length > 0 && (
@@ -1444,9 +1302,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                                                 </div>
                                                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 ml-4">
                                                     <div className="hidden sm:block"><CatBadge protein={day.recipe.protein} /></div>
-                                                    {!isPlanLocked && (
-                                                      <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
-                                                    )}
+                                                    <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
                                                 </div>
                                                 </div>
                                             );
@@ -1490,7 +1346,8 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    {/* UPPDATERAD ICA-LÄNK (Allmänt sök via ica.se/sok) */}
+                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
@@ -1569,103 +1426,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                   </div>
                 )}
 
-                {/* --- VY: INSPIRATION --- */}
-                {activeTab === 'inspiration' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
-                    <div className="text-center mb-8">
-                      <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Sparkles size={28} className="text-emerald-600" />
-                      </div>
-                      <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Ny inspiration</h2>
-                      <p className="text-slate-500">Skriv in en råvara du har hemma eller något du är sugen på, så hittar AI-kocken på ett nytt, gott recept åt dig.</p>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-8 flex flex-col sm:flex-row gap-3">
-                      <input 
-                        type="text" 
-                        value={inspirationQuery} 
-                        onChange={(e) => setInspirationQuery(e.target.value)} 
-                        placeholder="T.ex. Vegetariskt med sötpotatis..." 
-                        className="flex-1 px-5 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateInspiration()}
-                      />
-                      <button 
-                        onClick={handleGenerateInspiration} 
-                        disabled={isGeneratingInspiration}
-                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        {isGeneratingInspiration ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                        Skapa recept
-                      </button>
-                    </div>
-
-                    {inspiredRecipe && (
-                      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300 relative">
-                        <div className="p-6 sm:p-8">
-                          <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{inspiredRecipe.collection}</span>
-                          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight mb-4">{inspiredRecipe.name}</h2>
-                          
-                          <div className="w-full h-40 sm:h-64 bg-slate-100 rounded-2xl mb-6 overflow-hidden relative">
-                             <img 
-                              src={getRecipeImage(inspiredRecipe)} 
-                              alt={inspiredRecipe.name} 
-                              className="w-full h-full object-cover transition-opacity duration-500"
-                              onError={(e) => {
-                                e.target.onerror = null; 
-                                e.target.src = getFallbackImage(inspiredRecipe.id);
-                              }}
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-3 text-sm font-medium text-slate-500 mb-6">
-                            <CatBadge protein={inspiredRecipe.protein} />
-                            <span className="flex items-center gap-1.5"><CalendarDays size={16}/> {inspiredRecipe.time}</span>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-600"/> Ingredienser</h3>
-                              <ul className="space-y-2 text-sm text-slate-700">
-                                {inspiredRecipe.ingredients.map((ing, i) => (
-                                  <li key={i} className="flex justify-between border-b border-slate-200/50 pb-1 last:border-0">
-                                    <span>{ing.name}</span>
-                                    <span className="font-bold text-emerald-700">{ing.amount} {ing.unit}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                            
-                            <div>
-                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Utensils size={18} className="text-emerald-600"/> Tillagning</h3>
-                              <div className="space-y-3">
-                                {inspiredRecipe.instructions.split('\n').map((step, idx) => {
-                                  const cleanStep = step.replace(/^\d+\.\s*/, '').trim();
-                                  if(!cleanStep) return null;
-                                  return (
-                                    <div key={idx} className="flex gap-3 text-sm">
-                                      <span className="font-bold text-emerald-600">{idx+1}.</span>
-                                      <p className="text-slate-700">{cleanStep}</p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <button onClick={saveInspiredRecipe} className="w-full px-6 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg">
-                            <Save size={20} /> Spara detta till min Receptbok
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
               </main>
 
               <RecipeModal />
               <AddRecipeModal />
-              <ShareModal />
 
             </div>
           );
