@@ -51,7 +51,7 @@
         // =========================================================================
         // 1. KLISTRA IN DIN GOOGLE GEMINI AI-NYCKEL HÄR (ELLER LÄMNA TOM FÖR POPUP)
         // =========================================================================
-        const apiKey = "AIzaSyAH3JQom9CdQlcW013B96ibBvGzj2RtEZM"; 
+        const apiKey = ""; 
         
         // =========================================================================
         // 2. DIN FIREBASE CONFIG (För familjedelning)
@@ -686,7 +686,7 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
                   
                   // Uppdaterad prompt för att även bygga bildprompts från PDF
                   const promptText = `Extrahera recept från PDF. Svara ENDAST med data som följer JSON schemat exakt. 
@@ -760,7 +760,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
                 Svara ENDAST med data som följer JSON schemat exakt.
@@ -1080,7 +1080,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
