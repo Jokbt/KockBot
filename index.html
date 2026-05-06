@@ -51,7 +51,7 @@
         // =========================================================================
         // 1. KLISTRA IN DIN GOOGLE GEMINI AI-NYCKEL HÄR (ELLER LÄMNA TOM FÖR POPUP)
         // =========================================================================
-        const apiKey = "AIzaSyCSsSDg67scf6ih9mVv9FwUumyazC5LxsE"; 
+        const apiKey = "AIzaSyAH3JQom9CdQlcW013B96ibBvGzj2RtEZM"; 
         
         // =========================================================================
         // 2. DIN FIREBASE CONFIG (För familjedelning)
@@ -686,7 +686,7 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
                   
                   // Uppdaterad prompt för att även bygga bildprompts från PDF
                   const promptText = `Extrahera recept från PDF. Svara ENDAST med data som följer JSON schemat exakt. 
@@ -760,7 +760,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
                 Svara ENDAST med data som följer JSON schemat exakt.
@@ -811,6 +811,139 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
             setInspirationQuery('');
             setActiveTab('recipes');
             showToast("Det nya receptet sparades i din bok!");
+          };
+
+          const normalizeName = (name) => {
+            let n = name.toLowerCase().trim();
+            n = n.replace(/^(färska|färsk|finhackad|hackad|hackade|strimlad|strimlade|skivad|skivade|tärnad|tärnade|torkad|torkade|riven|rivna|hel|hela|gula|gul|röda|röd|gröna|grön|lätt)\s+/i, '');
+            n = n.replace(/\s*\(.*?\)/g, ''); 
+            n = n.trim();
+            if (n.match(/crème fraiche|creme fraiche|crème fraîche/i)) {
+               if (n.match(/tomat/i) && n.match(/basilika/i)) return 'Creme fraiche tomat basilika';
+               if (n.match(/parmesan/i) && n.match(/vitlök/i)) return 'Creme fraiche parmesan vitlök';
+               if (n.match(/örter/i)) return 'Creme fraiche franska örter';
+               if (n.match(/paprika/i) && n.match(/chili/i)) return 'Creme fraiche paprika chili';
+               return 'Creme fraiche';
+            }
+            if (n.match(/^grädde$|vispgrädde/i)) return 'Vispgrädde';
+            if (n.match(/matlagningsgrädde/i)) return 'Matlagningsgrädde';
+            if (n.match(/^mjölk/i)) return 'Mjölk';
+            if (n.match(/köttbuljong/i)) return 'Köttbuljong';
+            if (n.match(/grönsaksbuljong/i)) return 'Grönsaksbuljong';
+            if (n.match(/kycklingbuljong|hönsbuljong/i)) return 'Kycklingbuljong';
+            if (n.match(/kalvfond/i)) return 'Kalvfond';
+            if (n.match(/parmesan/i)) return 'Parmesanost';
+            if (n.match(/pecorino/i)) return 'Pecorinoost';
+            if (n.match(/mozzarella/i)) return 'Mozzarella';
+            if (n.match(/fetaost/i)) return 'Fetaost';
+            if (n.match(/riven ost|gratängost/i)) return 'Riven ost';
+            if (n.match(/kycklinglårfilé/i)) return 'Kycklinglårfilé';
+            if (n.match(/kycklingfilé|kycklingbröst/i)) return 'Kycklingfilé';
+            if (n.match(/blandfärs/i)) return 'Blandfärs';
+            if (n.match(/nötfärs|köttfärs/i)) return 'Nötfärs';
+            if (n.match(/kycklingfärs/i)) return 'Kycklingfärs';
+            if (n.match(/bacon/i)) return 'Bacon';
+            if (n.match(/falukorv/i)) return 'Falukorv';
+            if (n.match(/vitlök/i)) return 'Vitlök'; 
+            if (n.match(/^lök$|^lökar$/i)) return 'Gul lök';
+            if (n.match(/krossade tomater/i)) return 'Krossade tomater';
+            if (n.match(/tomatpuré/i)) return 'Tomatpuré';
+            if (n.match(/körsbärstomat|cocktailtomat/i)) return 'Körsbärstomater';
+            if (n.match(/^tomat$|^tomater$/i)) return 'Tomater';
+            if (n.match(/champinjon/i)) return 'Champinjoner';
+            if (n.match(/potatis/i) && !n.match(/söt|gratäng|mos|klyft/i)) return 'Potatis';
+            if (n.match(/äggulor|^ägg$/i)) return 'Ägg';
+            if (n.match(/smör/i) && !n.match(/jordnöt/i)) return 'Smör';
+            if (n.match(/olivolja/i)) return 'Olivolja';
+            if (n.match(/rapsolja|matolja/i)) return 'Rapsolja';
+            if (n.match(/vetemjöl/i)) return 'Vetemjöl';
+            if (n.match(/majsstärkelse|maizena/i)) return 'Majsstärkelse';
+            if (n.match(/soja|soya/i)) return 'Japansk soja';
+            if (n.match(/pancetta/i)) return 'Pancetta';
+            if (n.match(/salsiccia/i)) return 'Salsiccia';
+            
+            n = n.replace(/klyftor$/i, 'klyfta');
+            n = n.replace(/lökar$/i, 'lök');
+            n = n.replace(/tomater$/i, 'tomat');
+            n = n.replace(/morötter$/i, 'morot');
+            n = n.replace(/potatisar$/i, 'potatis');
+            n = n.replace(/filéer$/i, 'filé');
+            n = n.replace(/förpackningar$/i, 'förp');
+            n = n.replace(/burkar$/i, 'burk');
+            n = n.replace(/skivor$/i, 'skiva');
+            n = n.replace(/bitar$/i, 'bit');
+            n = n.replace(/påsar$/i, 'påse');
+            n = n.replace(/krukor$/i, 'kruka');
+            n = n.replace(/halvor$/i, 'halva');
+            n = n.replace(/korvar$/i, 'korv');
+            
+            return n.charAt(0).toUpperCase() + n.slice(1);
+          };
+
+          const normalizeUnit = (unit) => {
+            let u = unit.toLowerCase().trim();
+            if (u === 'klyftor' || u === 'klyfta' || u === 'stycken' || u === 'styck') return 'st';
+            if (u === 'förpackning' || u === 'förpackningar' || u === 'paket' || u === 'pkt' || u === 'ask' || u === 'askar') return 'förp';
+            if (u === 'krukor') return 'kruka';
+            if (u === 'skivor' || u === 'skiva') return 'skiva';
+            if (u === 'burkar' || u === 'burk') return 'burk';
+            if (u === 'port' || u === 'portioner' || u === 'portion') return 'port';
+            if (u === 'g' || u === 'gram') return 'g';
+            if (u === 'kg' || u === 'kilo') return 'kg';
+            if (u === 'msk' || u === 'matskedar' || u === 'matsked') return 'msk';
+            if (u === 'tsk' || u === 'teskedar' || u === 'tesked') return 'tsk';
+            if (u === 'krm' || u === 'kryddmått') return 'krm';
+            if (u === 'l' || u === 'liter') return 'liter';
+            if (u === 'dl' || u === 'deciliter') return 'dl';
+            if (u === 'cl' || u === 'centiliter') return 'cl';
+            if (u === 'ml' || u === 'milliliter') return 'ml';
+            if (u === 'knippe' || u === 'knippen') return 'knippe';
+            if (u === 'näve' || u === 'nävar') return 'näve';
+            return u;
+          };
+
+          const shoppingList = useMemo(() => {
+            if (mealPlan.length === 0) return [];
+            const listMap = {};
+            mealPlan.forEach(day => {
+              if(!day.recipe.ingredients) return;
+              day.recipe.ingredients.forEach(ing => {
+                const normName = normalizeName(ing.name);
+                const normUnit = normalizeUnit(ing.unit);
+                
+                if (!listMap[normName]) {
+                  listMap[normName] = { name: normName, amounts: {} };
+                }
+                
+                if (listMap[normName].amounts[normUnit]) {
+                  listMap[normName].amounts[normUnit] += ing.amount;
+                } else {
+                  listMap[normName].amounts[normUnit] = ing.amount;
+                }
+              });
+            });
+            return Object.values(listMap).sort((a, b) => a.name.localeCompare(b.name));
+          }, [mealPlan]);
+
+          const formatAmounts = (amountsObj) => {
+            const parts = [];
+            for (const [unit, amount] of Object.entries(amountsObj)) {
+              let displayAmount = amount;
+              let displayUnit = unit;
+              if (unit === 'g' && amount >= 1000 && amount % 100 === 0) {
+                displayAmount = amount / 1000;
+                displayUnit = 'kg';
+              }
+              displayAmount = Math.round(displayAmount * 10) / 10;
+              parts.push(displayAmount + ' ' + displayUnit);
+            }
+            return parts.join(' + ');
+          };
+
+          const toggleCheckItem = (name) => {
+            const newChecked = { ...checkedListItems, [name]: !checkedListItems[name] };
+            setCheckedListItems(newChecked);
+            updateDb({ checkedListItems: newChecked });
           };
 
           const handleCopyList = () => {
@@ -947,7 +1080,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant på engelska
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${activeKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
