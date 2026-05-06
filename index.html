@@ -1253,10 +1253,21 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                 <div className="max-w-4xl mx-auto px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-md shadow-emerald-500/20">
-                        <ChefHat size={24} />
+                      <div className="w-10 h-10 rounded-xl shadow-md shadow-emerald-500/30 overflow-hidden bg-white border-2 border-emerald-500 flex-shrink-0 p-0.5">
+                        <RobotLogo />
                       </div>
-                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">Smart Matsedel</h1>
+                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
+                      
+                      <div className="flex items-center gap-2 ml-4">
+                        <button onClick={() => setShowShareModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-all border border-emerald-100 shadow-sm" title="Dela med familjen">
+                          <Users size={16} /> <span className="hidden sm:inline">Dela</span>
+                        </button>
+                        {!isStandalone && (
+                          <button onClick={installApp} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> <span className="hidden md:inline">App</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="hidden md:flex bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
@@ -1269,8 +1280,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                       <button onClick={() => setActiveTab('recipes')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'recipes' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
                         <BookOpen size={18} /> Recept
                       </button>
+                      <button onClick={() => setActiveTab('inspiration')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'inspiration' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <Sparkles size={18} /> Inspiration
+                      </button>
                     </div>
-                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight sm:hidden mr-auto">Smart Matsedel</h1>
                   </div>
                 </div>
               </header>
@@ -1287,6 +1300,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                  <button onClick={() => setActiveTab('recipes')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'recipes' ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <BookOpen size={24} className={activeTab === 'recipes' ? 'fill-emerald-50/50' : ''} />
                     <span className="text-[10px] font-bold">Recept</span>
+                 </button>
+                 <button onClick={() => setActiveTab('inspiration')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'inspiration' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <Sparkles size={24} className={activeTab === 'inspiration' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Hitta på</span>
                  </button>
               </div>
 
@@ -1314,11 +1331,20 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                     ) : (
                         <>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                              <div><h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2></div>
-                              <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
-                                  <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
-                                  <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
+                              <div className="flex items-center gap-3">
+                                <h2 className="text-3xl font-extrabold text-slate-800">Din Meny</h2>
+                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md hidden sm:block">ID: {householdId}</span>
+                                <button onClick={toggleLock} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm ${isPlanLocked ? 'bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                  {isPlanLocked ? <><Lock size={14} /> Låst</> : <><Unlock size={14} /> Lås fast</>}
+                                </button>
                               </div>
+                              
+                              {!isPlanLocked && (
+                                <div className="flex bg-slate-200/60 p-1 rounded-xl w-full sm:w-auto">
+                                    <button onClick={() => generatePlan('week')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'week' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>1 Vecka</button>
+                                    <button onClick={() => generatePlan('month')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planType === 'month' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>4 Veckor</button>
+                                </div>
+                              )}
                             </div>
 
                             {mealPlan.length > 0 && (
@@ -1344,7 +1370,9 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                                                 </div>
                                                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 ml-4">
                                                     <div className="hidden sm:block"><CatBadge protein={day.recipe.protein} /></div>
-                                                    <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+                                                    {!isPlanLocked && (
+                                                      <button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-700 rounded-xl transition-colors"><RefreshCw size={16} /></button>
+                                                    )}
                                                 </div>
                                                 </div>
                                             );
@@ -1468,10 +1496,103 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                   </div>
                 )}
 
+                {/* --- VY: INSPIRATION --- */}
+                {activeTab === 'inspiration' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
+                    <div className="text-center mb-8">
+                      <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Sparkles size={28} className="text-emerald-600" />
+                      </div>
+                      <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Ny inspiration</h2>
+                      <p className="text-slate-500">Skriv in en råvara du har hemma eller något du är sugen på, så hittar AI-kocken på ett nytt, gott recept åt dig.</p>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-8 flex flex-col sm:flex-row gap-3">
+                      <input 
+                        type="text" 
+                        value={inspirationQuery} 
+                        onChange={(e) => setInspirationQuery(e.target.value)} 
+                        placeholder="T.ex. Vegetariskt med sötpotatis..." 
+                        className="flex-1 px-5 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateInspiration()}
+                      />
+                      <button 
+                        onClick={handleGenerateInspiration} 
+                        disabled={isGeneratingInspiration}
+                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        {isGeneratingInspiration ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        Skapa recept
+                      </button>
+                    </div>
+
+                    {inspiredRecipe && (
+                      <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300 relative">
+                        <div className="p-6 sm:p-8">
+                          <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-2 block">{inspiredRecipe.collection}</span>
+                          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight mb-4">{inspiredRecipe.name}</h2>
+                          
+                          <div className="w-full h-40 sm:h-64 bg-slate-100 rounded-2xl mb-6 overflow-hidden relative">
+                             <img 
+                              src={getRecipeImage(inspiredRecipe)} 
+                              alt={inspiredRecipe.name} 
+                              className="w-full h-full object-cover transition-opacity duration-500"
+                              onError={(e) => {
+                                e.target.onerror = null; 
+                                e.target.src = getFallbackImage(inspiredRecipe.id);
+                              }}
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-3 text-sm font-medium text-slate-500 mb-6">
+                            <CatBadge protein={inspiredRecipe.protein} />
+                            <span className="flex items-center gap-1.5"><CalendarDays size={16}/> {inspiredRecipe.time}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-600"/> Ingredienser</h3>
+                              <ul className="space-y-2 text-sm text-slate-700">
+                                {inspiredRecipe.ingredients.map((ing, i) => (
+                                  <li key={i} className="flex justify-between border-b border-slate-200/50 pb-1 last:border-0">
+                                    <span>{ing.name}</span>
+                                    <span className="font-bold text-emerald-700">{ing.amount} {ing.unit}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            
+                            <div>
+                              <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Utensils size={18} className="text-emerald-600"/> Tillagning</h3>
+                              <div className="space-y-3">
+                                {inspiredRecipe.instructions.split('\n').map((step, idx) => {
+                                  const cleanStep = step.replace(/^\d+\.\s*/, '').trim();
+                                  if(!cleanStep) return null;
+                                  return (
+                                    <div key={idx} className="flex gap-3 text-sm">
+                                      <span className="font-bold text-emerald-600">{idx+1}.</span>
+                                      <p className="text-slate-700">{cleanStep}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button onClick={saveInspiredRecipe} className="w-full px-6 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg">
+                            <Save size={20} /> Spara detta till min Receptbok
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </main>
 
               <RecipeModal />
               <AddRecipeModal />
+              <ShareModal />
 
             </div>
           );
