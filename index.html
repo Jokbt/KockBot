@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KockBot</title>
     
+    <!-- PWA Meta Tags & Manifest -->
     <meta name="theme-color" content="#10b981">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,10 +13,13 @@
     <link rel="apple-touch-icon" href="./logo.jpg">
     <link rel="manifest" href='data:application/manifest+json;utf8,{"name":"KockBot - Smart Matsedel","short_name":"KockBot","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#10b981","icons":[{"src":"./logo.jpg","sizes":"512x512","type":"image/jpeg"},{"src":"./logo.jpg","sizes":"192x192","type":"image/jpeg"}]}'>
 
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Babel för att kunna köra JSX i webbläsaren -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Import Map för React och externa bibliotek -->
     <script type="importmap">
     {
       "imports": {
@@ -401,16 +405,23 @@
           // NY FUNKTION FÖR ATT HANTERA API-NYCKEL TILL GITHUB
           const getApiKey = () => {
             if (apiKey && apiKey.length > 5) return apiKey;
-            let storedKey = localStorage.getItem('smartMatsedel_apiKey');
-            if (!storedKey || storedKey.length < 5) {
-              storedKey = prompt("Vänligen klistra in din Google Gemini API-nyckel för att AI-funktionerna ska fungera.\\n\\nDu kan hämta en gratis på: aistudio.google.com/app/apikey");
-              if (storedKey && storedKey.length > 5) {
-                localStorage.setItem('smartMatsedel_apiKey', storedKey);
-              } else {
-                return null;
+            
+            const isGithub = window.location.hostname.includes('github.io');
+            if (isGithub) {
+              let storedKey = localStorage.getItem('smartMatsedel_apiKey');
+              if (!storedKey || storedKey.length < 5) {
+                storedKey = prompt("Vänligen klistra in din Google Gemini API-nyckel för att AI-funktionerna ska fungera.\\n\\nDu kan hämta en gratis på: aistudio.google.com/app/apikey");
+                if (storedKey && storedKey.length > 5) {
+                  localStorage.setItem('smartMatsedel_apiKey', storedKey);
+                } else {
+                  return null;
+                }
               }
+              return storedKey;
             }
-            return storedKey;
+            
+            // I Canvas-miljön returnerar vi tomt, så hanterar servern nyckeln åt oss.
+            return ''; 
           };
 
           useEffect(() => {
@@ -618,13 +629,13 @@
             if (file.type !== 'application/pdf') {
               showToast("Endast PDF-filer stöds."); return;
             }
-            if (file.size > 10 * 1024 * 1024) { 
-              showToast("PDF-filen är för stor (max 10MB)."); 
+            if (file.size > 5 * 1024 * 1024) { 
+              showToast("PDF-filen är för stor (max 5MB)."); 
               return; 
             }
 
             const activeKey = getApiKey();
-            if (!activeKey) {
+            if (!activeKey && window.location.hostname.includes('github.io')) {
                 showToast("Du måste ange en API-nyckel för att använda denna funktion.");
                 if (fileInputRef.current) fileInputRef.current.value = '';
                 return;
@@ -638,7 +649,8 @@
               reader.onloadend = async () => {
                 try {
                   const base64Data = reader.result.split(',')[1];
-                  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                  const modelName = activeKey ? "gemini-2.0-flash" : "gemini-2.5-flash-preview-09-2025";
+                  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                   
                   const promptText = `Extrahera recept från PDF. Svara ENDAST med kod för en JSON-array. MÅSTE vara en array (lista) med objekt exakt enligt detta mönster och INGET annat text runtom:
 [
@@ -719,7 +731,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
             if (!inspirationQuery.trim()) { showToast("Skriv in en råvara eller idé först!"); return; }
             
             const activeKey = getApiKey();
-            if (!activeKey) {
+            if (!activeKey && window.location.hostname.includes('github.io')) {
                 showToast("Du måste ange en API-nyckel för att använda denna funktion.");
                 return;
             }
@@ -729,7 +741,8 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
             showToast("Kocken skapar ett nytt recept...");
 
             try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+              const modelName = activeKey ? "gemini-2.0-flash" : "gemini-2.5-flash-preview-09-2025";
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
               const promptText = `
                 Du är en professionell kock. Skapa ett detaljerat, gott och lättlagat recept baserat på följande idé/råvara: "${inspirationQuery}".
                 Svara ENDAST med ett giltigt JSON-objekt och INGEN text runtom. Använd detta mönster:
@@ -1007,7 +1020,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
               if (!file) return;
 
               const activeKey = getApiKey();
-              if (!activeKey) {
+              if (!activeKey && window.location.hostname.includes('github.io')) {
                   showToast("Du måste ange en API-nyckel för att använda denna funktion.");
                   if (cameraInputRef.current) cameraInputRef.current.value = '';
                   return;
@@ -1022,7 +1035,8 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                 reader.onloadend = async () => {
                   try {
                     const base64Data = reader.result.split(',')[1];
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+                    const modelName = activeKey ? "gemini-2.0-flash" : "gemini-2.5-flash-preview-09-2025";
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                     
                     const promptText = `
                       Du är en expert på att läsa och tolka handskrivna eller tryckta recept från bilder. 
@@ -1105,7 +1119,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                     
                     <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
                       <div>
-                        <h3 className="font-bold text-emerald-800">Har du receptet framförজিৎ dig?</h3>
+                        <h3 className="font-bold text-emerald-800">Har du receptet framför dig?</h3>
                         <p className="text-emerald-600 text-sm">Fota av ett papper eller en skärm så fyller vi i automatiskt!</p>
                       </div>
                       <div className="relative w-full sm:w-auto">
@@ -1283,10 +1297,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                 <div className="max-w-4xl mx-auto px-4 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-md shadow-emerald-500/20">
-                        <ChefHat size={24} />
+                      <div className="w-10 h-10 rounded-xl shadow-md shadow-emerald-500/30 overflow-hidden bg-white border-2 border-emerald-500 flex-shrink-0 p-0.5">
+                        <RobotLogo />
                       </div>
-                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">Smart Matsedel</h1>
+                      <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight hidden sm:block">KockBot</h1>
                     </div>
                     
                     <div className="hidden md:flex bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
@@ -1299,8 +1313,21 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                       <button onClick={() => setActiveTab('recipes')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'recipes' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
                         <BookOpen size={18} /> Recept
                       </button>
+                      <button onClick={() => setActiveTab('inspiration')} className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'inspiration' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}>
+                        <Sparkles size={18} /> Inspiration
+                      </button>
                     </div>
-                    <h1 className="text-xl font-extrabold text-slate-800 tracking-tight sm:hidden mr-auto">Smart Matsedel</h1>
+
+                    <div className="flex items-center gap-2 ml-auto sm:ml-4">
+                        <button onClick={() => setShowShareModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-all border border-emerald-100 shadow-sm" title="Dela med familjen">
+                          <Users size={16} /> <span className="hidden sm:inline">Dela</span>
+                        </button>
+                        {!isStandalone && (
+                          <button onClick={installApp} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <Download size={14} /> <span className="hidden sm:inline">Installera</span> <span className="hidden md:inline">App</span>
+                          </button>
+                        )}
+                    </div>
                   </div>
                 </div>
               </header>
@@ -1317,6 +1344,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                  <button onClick={() => setActiveTab('recipes')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'recipes' ? 'text-emerald-600' : 'text-slate-400'}`}>
                     <BookOpen size={24} className={activeTab === 'recipes' ? 'fill-emerald-50/50' : ''} />
                     <span className="text-[10px] font-bold">Recept</span>
+                 </button>
+                 <button onClick={() => setActiveTab('inspiration')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'inspiration' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <Sparkles size={24} className={activeTab === 'inspiration' ? 'fill-emerald-50/50' : ''} />
+                    <span className="text-[10px] font-bold">Hitta på</span>
                  </button>
               </div>
 
@@ -1418,7 +1449,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    <a href={`https://handla.ica.se/sok?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
