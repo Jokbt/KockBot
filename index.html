@@ -785,9 +785,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
             showToast("Det nya receptet sparades i din bok!");
           };
 
-          // Normaliseringsfunktioner för varukorgen
+          // Normaliseringsfunktioner för varukorgen (Uppdaterade med krasch-skydd)
           const normalizeName = (name) => {
-            let n = name.toLowerCase().trim();
+            if (!name) return "Okänd ingrediens";
+            let n = name.toString().toLowerCase().trim();
             n = n.replace(/klyftor$/i, 'klyfta');
             n = n.replace(/lökar$/i, 'lök');
             n = n.replace(/tomater$/i, 'tomat');
@@ -809,31 +810,48 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
           };
 
           const normalizeUnit = (unit) => {
-            let u = unit.toLowerCase().trim();
-            if (u === 'klyftor' || u === 'klyfta') return 'st';
-            if (u === 'förpackning' || u === 'paket' || u === 'pkt') return 'förp';
+            if (!unit) return "";
+            let u = unit.toString().toLowerCase().trim();
+            if (u === 'klyftor' || u === 'klyfta' || u === 'stycken' || u === 'styck') return 'st';
+            if (u === 'förpackning' || u === 'paket' || u === 'pkt' || u === 'förpackningar') return 'förp';
             if (u === 'krukor') return 'kruka';
             if (u === 'skivor') return 'skiva';
+            if (u === 'burkar' || u === 'burk') return 'burk';
+            if (u === 'port' || u === 'portioner' || u === 'portion') return 'port';
+            if (u === 'g' || u === 'gram') return 'g';
+            if (u === 'kg' || u === 'kilo') return 'kg';
+            if (u === 'msk' || u === 'matskedar' || u === 'matsked') return 'msk';
+            if (u === 'tsk' || u === 'teskedar' || u === 'tesked') return 'tsk';
+            if (u === 'krm' || u === 'kryddmått') return 'krm';
+            if (u === 'l' || u === 'liter') return 'liter';
+            if (u === 'dl' || u === 'deciliter') return 'dl';
+            if (u === 'cl' || u === 'centiliter') return 'cl';
+            if (u === 'ml' || u === 'milliliter') return 'ml';
+            if (u === 'knippe' || u === 'knippen') return 'knippe';
+            if (u === 'näve' || u === 'nävar') return 'näve';
             return u;
           };
 
           const shoppingList = useMemo(() => {
-            if (mealPlan.length === 0) return [];
+            if (!mealPlan || mealPlan.length === 0) return [];
             const listMap = {};
             mealPlan.forEach(day => {
-              if(!day.recipe.ingredients) return;
+              if(!day || !day.recipe || !Array.isArray(day.recipe.ingredients)) return;
               day.recipe.ingredients.forEach(ing => {
+                if (!ing || !ing.name) return; // Ignorera tomma fält
                 const normName = normalizeName(ing.name);
                 const normUnit = normalizeUnit(ing.unit);
+                // Tvinga till siffra för att undvika sträng-kraschar
+                const amt = parseFloat(ing.amount) || 0; 
                 
                 if (!listMap[normName]) {
                   listMap[normName] = { name: normName, amounts: {} };
                 }
                 
                 if (listMap[normName].amounts[normUnit]) {
-                  listMap[normName].amounts[normUnit] += ing.amount;
+                  listMap[normName].amounts[normUnit] += amt;
                 } else {
-                  listMap[normName].amounts[normUnit] = ing.amount;
+                  listMap[normName].amounts[normUnit] = amt;
                 }
               });
             });
@@ -843,6 +861,10 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
           const formatAmounts = (amountsObj) => {
             const parts = [];
             for (const [unit, amount] of Object.entries(amountsObj)) {
+              if (amount === 0) {
+                 if (unit) parts.push(unit);
+                 continue;
+              }
               let displayAmount = amount;
               let displayUnit = unit;
               if (unit === 'g' && amount >= 1000 && amount % 100 === 0) {
@@ -850,13 +872,14 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                 displayUnit = 'kg';
               }
               displayAmount = Math.round(displayAmount * 10) / 10;
-              parts.push(`${displayAmount} ${displayUnit}`);
+              parts.push(`${displayAmount} ${displayUnit}`.trim());
             }
-            return parts.join(' + ');
+            return parts.join(' + ') || 'Efter smak';
           };
 
           const toggleCheckItem = (name) => {
-            const newChecked = { ...checkedListItems, [name]: !checkedListItems[name] };
+            const currentChecked = checkedListItems || {};
+            const newChecked = { ...currentChecked, [name]: !currentChecked[name] };
             setCheckedListItems(newChecked);
             updateDb({ checkedListItems: newChecked });
           };
@@ -1399,7 +1422,7 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                         </div>
                         <div className="space-y-2">
                             {shoppingList.map((item, idx) => {
-                            const isChecked = checkedListItems[item.name];
+                            const isChecked = checkedListItems && checkedListItems[item.name];
                             return (
                                 <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 gap-4 sm:gap-2 ${isChecked ? 'bg-slate-50 border-transparent opacity-60' : 'bg-white border-slate-200 shadow-sm hover:border-emerald-300'}`}>
                                 <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => toggleCheckItem(item.name)}>
@@ -1410,8 +1433,8 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pl-10 sm:pl-0">
                                     <span className="font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">{formatAmounts(item.amounts)}</span>
-                                    {/* UPPDATERAD ICA-LÄNK (Allmänt sök via ica.se/sok) */}
-                                    <a href={`https://www.ica.se/sok/?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
+                                    {/* UPPDATERAD ICA-LÄNK (E-handelssök via handla.ica.se) */}
+                                    <a href={`https://handla.ica.se/sok/${encodeURIComponent(item.name.toLowerCase())}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100" onClick={(e) => e.stopPropagation()}><ExternalLink size={12} /> Sök på ICA</a>
                                 </div>
                                 </div>
                             );
