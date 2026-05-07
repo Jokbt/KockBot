@@ -715,7 +715,11 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
                   showToast(`${recipesWithIds.length} recept importerades!`);
                 } catch (err) {
                   console.error(err);
-                  showToast(`Fel: ${err.message || 'Kunde inte läsa filen.'}`);
+                  if (err.message && (err.message.includes("quota") || err.message.includes("429"))) {
+                    showToast("För många anrop på kort tid! Vänta ca 30 sekunder och försök igen.");
+                  } else {
+                    showToast(`Fel: ${err.message || 'Kunde inte läsa filen.'}`);
+                  }
                 } finally {
                   setIsUploadingPdf(false);
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -792,7 +796,11 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
               showToast("Receptet är klart!");
             } catch (err) {
               console.error("Inspiration Error:", err);
-              showToast(`Fel: ${err.message || 'Kunde inte skapa ett recept.'}`);
+              if (err.message && (err.message.includes("quota") || err.message.includes("429"))) {
+                showToast("AI-kocken behöver vila! Vänta ca 30 sekunder och försök igen.");
+              } else {
+                showToast(`Fel: ${err.message || 'Kunde inte skapa ett recept.'}`);
+              }
             } finally {
               setIsGeneratingInspiration(false);
             }
@@ -1087,7 +1095,11 @@ Om det finns bilder på maträtterna i PDF:en, beskriv dem noggrant i imagePromp
 
                     showToast("Receptet fylldes i från bilden!");
                   } catch (err) {
-                    showToast(`Fel: ${err.message || 'Kunde inte tolka bilden'}`);
+                    if (err.message && (err.message.includes("quota") || err.message.includes("429"))) {
+                        showToast("För många kamerabilder! Vänta ca 30 sekunder och försök igen.");
+                    } else {
+                        showToast(`Fel: ${err.message || 'Kunde inte tolka bilden'}`);
+                    }
                   } finally {
                     setIsScanning(false);
                     if (cameraInputRef.current) cameraInputRef.current.value = '';
