@@ -153,6 +153,16 @@
           return `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=800&height=600&nologo=true&seed=${seed}`;
         };
 
+        const getCategory = (name) => {
+          const n = name.toLowerCase();
+          if (/(lök|tomat|morot|potatis|spenat|persilja|basilika|svamp|champinjon|paprika|chili|citron|lime|broccoli|äpple|banan|sallad|gurka|purjolök|timjan|oregano|rosmarin|dill|koriander|avokado|zucchini|aubergine|kål|palsternacka|rotfrukt|ingefära|frukt|bär)/.test(n)) return 'Frukt & Grönt';
+          if (/(mjölk|grädde|smör|ost|parmesan|pecorino|mozzarella|halloumi|creme fraiche|crème|ägg|feta|färskost|mascarpone|burrata|yoghurt|kvarg|margarin|fil)/.test(n)) return 'Mejeri & Ägg';
+          if (/(färs|kyckling|kött|korv|pancetta|salami|lax|torsk|räkor|fläsk|biff|skinka|chorizo|kalkon|bacon|prosciutto|skaldjur)/.test(n)) return 'Kött, Fågel & Fisk';
+          if (/(pasta|spaghetti|makaroner|nudlar|ris|buljong|fond|soja|olja|salt|peppar|socker|mjöl|ströbröd|panko|puré|krossade|passerade|sambal|senap|honung|vinäger|nötter|frön|krydda|kanel|kardemumma|spiskummin|kakao|vanilj|sirap|balsamico|maizena|stärkelse|ketchup|chilisås|linser|bönor)/.test(n)) return 'Skafferi';
+          if (/(bröd|tortilla|pita|baguette|franska|korvbröd|hamburgerbröd|knäckebröd)/.test(n)) return 'Bröd & Bageri';
+          return 'Övrigt';
+        };
+
         const normalizeName = (name) => {
           let n = name.toLowerCase().trim();
 
@@ -734,11 +744,33 @@
 
                 const normUnit = normalizeUnit(ing.unit);
                 const amt = parseFloat(ing.amount) || 0; 
-                if (!listMap[normName]) listMap[normName] = { name: normName, amounts: {} };
+                if (!listMap[normName]) listMap[normName] = { name: normName, amounts: {}, category: getCategory(normName) };
                 listMap[normName].amounts[normUnit] = (listMap[normName].amounts[normUnit] || 0) + amt;
               });
             });
-            return Object.values(listMap).sort((a, b) => a.name.localeCompare(b.name));
+            
+            const flatList = Object.values(listMap).sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Gruppera efter kategori
+            const grouped = {
+              'Frukt & Grönt': [],
+              'Kött, Fågel & Fisk': [],
+              'Mejeri & Ägg': [],
+              'Skafferi': [],
+              'Bröd & Bageri': [],
+              'Övrigt': []
+            };
+            
+            flatList.forEach(item => {
+              if (grouped[item.category]) {
+                  grouped[item.category].push(item);
+              } else {
+                  grouped['Övrigt'].push(item);
+              }
+            });
+            
+            // Returnera endast kategorier som har innehåll
+            return Object.entries(grouped).filter(([_, items]) => items.length > 0);
           }, [mealPlan]);
 
           const filteredRecipes = useMemo(() => {
@@ -750,7 +782,16 @@
               showToast("Listan är tom.");
               return;
             }
-            const text = shoppingList.map(item => `${formatAmounts(item.amounts)} ${item.name}`).join('\n');
+            
+            let text = "Inköpslista:\n\n";
+            shoppingList.forEach(([category, items]) => {
+              text += `--- ${category} ---\n`;
+              items.forEach(item => {
+                  text += `${formatAmounts(item.amounts)} ${item.name}\n`;
+              });
+              text += '\n';
+            });
+
             const ta = document.createElement("textarea"); 
             ta.value = text; 
             document.body.appendChild(ta);
@@ -1327,51 +1368,56 @@
                 )}
 
                 {/* --- VY: INKÖPSLISTA --- */}
-                {activeTab === 'list' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
-                    {mealPlan.length === 0 ? (
-                         <div className="text-center py-24 px-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl border border-white dark:border-slate-700 shadow-xl shadow-slate-200/40 dark:shadow-none">
-                            <div className="bg-slate-100 dark:bg-slate-900 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                              <ShoppingCart size={40} className="text-slate-400 dark:text-slate-600" />
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white mb-2">Inköpslistan är tom</h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium">Skapa en matsedel först för att se vad du behöver handla.</p>
+            {activeTab === 'list' && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
+                {mealPlan.length === 0 ? (
+                     <div className="text-center py-24 px-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl border border-white dark:border-slate-700 shadow-xl shadow-slate-200/40 dark:shadow-none">
+                        <div className="bg-slate-100 dark:bg-slate-900 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                          <ShoppingCart size={40} className="text-slate-400 dark:text-slate-600" />
                         </div>
-                    ) : (
-                        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white/50 dark:border-slate-700 p-6 sm:p-8 mb-6">
-                          <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-6 mb-8 border-b border-slate-100 dark:border-slate-700 pb-6">
-                              <div><h2 className="text-3xl font-black text-slate-800 dark:text-white mb-2 drop-shadow-sm">Inköpslista</h2></div>
-                              <button onClick={handleCopyList} className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-[#526e35] text-white font-bold rounded-2xl text-sm shadow-lg active:scale-95">
-                                <Copy size={18} /> Kopiera text
-                              </button>
-                          </div>
-                          <div className="space-y-3">
-                              {shoppingList.map((item, idx) => {
-                              const isChecked = checkedListItems && checkedListItems[item.name];
-                              return (
-                                  <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border duration-300 gap-4 sm:gap-2 ${isChecked ? 'bg-slate-50/50 dark:bg-slate-900/30 border-transparent opacity-60 scale-[0.98]' : 'bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 shadow-sm hover:border-[#9eb582] dark:hover:border-[#526e35] hover:shadow-md hover:-translate-y-0.5'}`}>
-                                    <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => toggleCheckItem(item.name)}>
-                                        <div className={`flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${isChecked ? 'bg-[#6a8a47] border-[#6a8a47] dark:bg-[#526e35] dark:border-[#526e35]' : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900'}`}>
-                                          {isChecked && <Check size={16} className="text-white" strokeWidth={3} />}
+                        <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white mb-2">Inköpslistan är tom</h2>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium">Skapa en matsedel först för att se vad du behöver handla.</p>
+                    </div>
+                ) : (
+                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-[2rem] shadow-xl border border-white/50 dark:border-slate-700 p-6 sm:p-8 mb-6">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-6 mb-8 border-b border-slate-100 dark:border-slate-700 pb-6">
+                          <div><h2 className="text-3xl font-black text-slate-800 dark:text-white mb-2 drop-shadow-sm">Inköpslista</h2></div>
+                          <button onClick={handleCopyList} className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-[#526e35] text-white font-bold rounded-2xl text-sm shadow-lg active:scale-95">
+                            <Copy size={18} /> Kopiera text
+                          </button>
+                      </div>
+                      <div className="space-y-8">
+                          {shoppingList.map(([category, items], catIdx) => (
+                              <div key={catIdx} className="space-y-3">
+                                  <h3 className="text-lg font-bold text-[#526e35] dark:text-[#82a061] border-b border-[#e4ede0] dark:border-[#293819] pb-2 pl-1 uppercase tracking-widest text-xs">{category}</h3>
+                                  {items.map((item, idx) => {
+                                  const isChecked = checkedListItems && checkedListItems[item.name];
+                                  return (
+                                      <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border duration-300 gap-4 sm:gap-2 ${isChecked ? 'bg-slate-50/50 dark:bg-slate-900/30 border-transparent opacity-60 scale-[0.98]' : 'bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 shadow-sm hover:border-[#9eb582] dark:hover:border-[#526e35] hover:shadow-md hover:-translate-y-0.5'}`}>
+                                        <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => toggleCheckItem(item.name)}>
+                                            <div className={`flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${isChecked ? 'bg-[#6a8a47] border-[#6a8a47] dark:bg-[#526e35] dark:border-[#526e35]' : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900'}`}>
+                                              {isChecked && <Check size={16} className="text-white" strokeWidth={3} />}
+                                            </div>
+                                            <span className={`font-semibold text-lg sm:text-base ${isChecked ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>{item.name}</span>
                                         </div>
-                                        <span className={`font-semibold text-lg sm:text-base ${isChecked ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pl-11 sm:pl-0">
-                                        <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900/50 px-4 py-2 rounded-xl text-sm whitespace-nowrap shadow-sm border border-slate-200/50 dark:border-slate-700">{formatAmounts(item.amounts)}</span>
-                                        <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-extrabold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl border border-red-100 dark:border-red-800 active:scale-95 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                                          <ExternalLink size={14} /> ICA
-                                        </a>
-                                    </div>
-                                  </div>
-                              );
-                              })}
-                          </div>
-                        </div>
-                    )}
-                  </div>
+                                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pl-11 sm:pl-0">
+                                            <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-900/50 px-4 py-2 rounded-xl text-sm whitespace-nowrap shadow-sm border border-slate-200/50 dark:border-slate-700">{formatAmounts(item.amounts)}</span>
+                                            <a href={`https://handlaprivatkund.ica.se/stores/1004243/search?q=${encodeURIComponent(item.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-extrabold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-xl border border-red-100 dark:border-red-800 active:scale-95 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                              <ExternalLink size={14} /> ICA
+                                            </a>
+                                        </div>
+                                      </div>
+                                  );
+                                  })}
+                              </div>
+                          ))}
+                      </div>
+                    </div>
                 )}
+              </div>
+            )}
 
-                {/* --- VY: RECEPTBOK --- */}
+            {/* --- VY: RECEPTBOK --- */}
                 {activeTab === 'recipes' && (
                   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 sm:p-8 rounded-[2rem] border border-white dark:border-slate-700 shadow-xl dark:shadow-none">
