@@ -295,10 +295,10 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
 
           const [recipes, setRecipes] = useState(() => {
-            const isCleared = localStorage.getItem('smartMatsedel_cleared_v123');
+            const isCleared = localStorage.getItem('smartMatsedel_cleared_v125');
             if (!isCleared) {
               localStorage.removeItem('smartMatsedel_recipes');
-              localStorage.setItem('smartMatsedel_cleared_v123', 'true');
+              localStorage.setItem('smartMatsedel_cleared_v125', 'true');
               return DEFAULT_RECIPES;
             }
             const saved = localStorage.getItem('smartMatsedel_recipes');
@@ -371,6 +371,11 @@
               document.documentElement.classList.remove('dark');
             }
           }, [isDarkMode]);
+
+          // Rensa gammal ogiltig API-nyckel från webbläsaren
+          useEffect(() => {
+            localStorage.removeItem('smartMatsedel_apiKey');
+          }, []);
 
           useEffect(() => {
             if (!householdId) {
@@ -459,6 +464,7 @@
             }
           };
 
+          // --- Uppdaterad: Säker bilduppladdning ---
           const triggerImageUpload = (e, recipeId) => {
             e.stopPropagation();
             setUploadingForRecipeId(recipeId);
@@ -476,16 +482,16 @@
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const MAX_DIM = 800;
+                const MAX_DIM = 500; // Kraftigt förminskad för att garantera plats i databasen
                 
                 if (width > height) { 
                   if (width > MAX_DIM) { 
-                    height *= MAX_DIM / width; 
+                    height = Math.round(height * (MAX_DIM / width)); 
                     width = MAX_DIM; 
                   } 
                 } else { 
                   if (height > MAX_DIM) { 
-                    width *= MAX_DIM / height; 
+                    width = Math.round(width * (MAX_DIM / height)); 
                     height = MAX_DIM; 
                   } 
                 }
@@ -493,11 +499,16 @@
                 canvas.width = width; 
                 canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                const newRecipes = recipes.map(r => r.id === uploadingForRecipeId ? { ...r, customImage: dataUrl } : r);
                 
-                setRecipes(newRecipes);
-                updateDb({ recipes: newRecipes });
+                // Mycket starkare komprimering för att klara Firestore begränsningar (1MB)
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                
+                setRecipes(prevRecipes => {
+                  const newRecipes = prevRecipes.map(r => r.id === uploadingForRecipeId ? { ...r, customImage: dataUrl } : r);
+                  updateDb({ recipes: newRecipes });
+                  return newRecipes;
+                });
+                
                 showToast("Din bild har sparats!");
                 setUploadingForRecipeId(null);
                 if (imageUploadRef.current) imageUploadRef.current.value = '';
@@ -628,62 +639,62 @@
                             imagePrompt: { type: "STRING" }
                           },
                           required: ["name", "protein", "collection", "time", "ingredients", "instructions"]
-                        }
-                      }
-                    } 
-                  };
-                  
-                  const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                  const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                  
-                  if (!rawText) throw new Error("Inget svar");
-                  const matchPattern = new RegExp('\\[[\\s\\S]*\\]');
-                  const match = rawText.match(matchPattern);
-                  if (!match) throw new Error("Format error");
-                  
-                  let parsedData = JSON.parse(match[0]);
-                  const newRecs = (Array.isArray(parsedData) ? parsedData : [parsedData]).map(r => ({ 
-                    ...r, 
-                    id: 'pdf_' + Date.now() + Math.random(), 
-                    ingredients: r.ingredients || [], 
-                    instructions: r.instructions || '' 
-                  }));
-                  
-                  const combined = [...recipes, ...newRecs];
-                  setRecipes(combined); 
-                  updateDb({ recipes: combined }); 
-                  showToast(`${newRecs.length} recept importerades!`);
-                } catch (err) { 
-                  console.error(err);
-                  showToast("Fel vid import. Dokumentet kan vara för stort."); 
+                    }
+                  }
                 } 
-                finally { 
-                  setIsUploadingPdf(false); 
-                  if (fileInputRef.current) fileInputRef.current.value = ''; 
-                }
               };
-              reader.readAsDataURL(file);
+              
+              const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+              
+              if (!rawText) throw new Error("Inget svar");
+              const matchPattern = new RegExp('\\[[\\s\\S]*\\]');
+              const match = rawText.match(matchPattern);
+              if (!match) throw new Error("Format error");
+              
+              let parsedData = JSON.parse(match[0]);
+              const newRecs = (Array.isArray(parsedData) ? parsedData : [parsedData]).map(r => ({ 
+                ...r, 
+                id: 'pdf_' + Date.now() + Math.random(), 
+                ingredients: r.ingredients || [], 
+                instructions: r.instructions || '' 
+              }));
+              
+              const combined = [...recipes, ...newRecs];
+              setRecipes(combined); 
+              updateDb({ recipes: combined }); 
+              showToast(`${newRecs.length} recept importerades!`);
             } catch (err) { 
-              showToast("Lokalt fel."); 
+              console.error(err);
+              showToast("Fel vid import. Dokumentet kan vara för stort."); 
+            } 
+            finally { 
               setIsUploadingPdf(false); 
+              if (fileInputRef.current) fileInputRef.current.value = ''; 
             }
           };
+          reader.readAsDataURL(file);
+        } catch (err) { 
+          showToast("Lokalt fel."); 
+          setIsUploadingPdf(false); 
+        }
+      };
 
-          const handleGenerateInspiration = async () => {
-            if (!inspirationQuery.trim()) {
-              showToast("Skriv in en råvara eller idé först!");
-              return;
-            }
-            
-            setIsGeneratingInspiration(true); 
-            setInspiredRecipe(null); 
-            showToast("Kocken skapar ett recept...");
-            
-            try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-              const payload = { 
-                contents: [{ role: "user", parts: [{ text: `Du är kock. Skapa recept på svenskt baserat på: "${inspirationQuery}".` }] }], 
-                generationConfig: { 
+      const handleGenerateInspiration = async () => {
+        if (!inspirationQuery.trim()) {
+          showToast("Skriv in en råvara eller idé först!");
+          return;
+        }
+        
+        setIsGeneratingInspiration(true); 
+        setInspiredRecipe(null); 
+        showToast("Kocken skapar ett recept...");
+        
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+          const payload = { 
+            contents: [{ role: "user", parts: [{ text: `Du är kock. Skapa recept på svenskt baserat på: "${inspirationQuery}".` }] }], 
+            generationConfig: { 
                   temperature: 0.7,
                   responseMimeType: "application/json",
                   responseSchema: {
