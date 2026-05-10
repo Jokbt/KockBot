@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="KockBot">
-    <link rel="apple-touch-icon" href="./logo.png">
+    <link rel="apple-touch-icon" href="./logga.png">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -198,7 +198,7 @@
             .filter(step => step.length > 0);
         };
 
-        const RobotLogo = () => <img src="./logo.png" alt="KockBot Logo" className="w-full h-full object-cover rounded-lg shadow-sm" />;
+        const RobotLogo = () => <img src="./logga.png" alt="KockBot Logga" className="w-full h-full object-cover rounded-lg shadow-sm" />;
 
         const CatBadge = ({ protein }) => {
           const colors = { 
@@ -210,6 +210,8 @@
           const pStr = protein ? protein.toLowerCase() : 'veg';
           return <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm border ${colors[pStr] || colors['veg']}`}>{protein || 'VEG'}</span>;
         };
+
+        const DEFAULT_RECIPES = [];
 
         // =========================================================================
         // HUVUDKOMPONENT
@@ -274,7 +276,7 @@
             const manifestData = {
               name: "KockBot", short_name: "KockBot", start_url: ".", display: "standalone",
               background_color: isDarkMode ? "#0f172a" : "#f8fafc", theme_color: isDarkMode ? "#171f0d" : "#bacca0",
-              icons: [ { src: "./logo.png", sizes: "192x192", type: "image/png" }, { src: "./logo.png", sizes: "512x512", type: "image/png" } ]
+              icons: [ { src: "./logga.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "./logga.png", sizes: "512x512", type: "image/png", purpose: "any maskable" } ]
             };
             manifest.href = `data:application/manifest+json;charset=utf-8,${encodeURIComponent(JSON.stringify(manifestData))}`;
             
