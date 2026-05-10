@@ -74,13 +74,14 @@
         // För GitHub/egen hosting: Byt ut till din egen gratis Firebase config OM du vill ha 
         // molnsynk mellan flera enheter. Lämnas den så här körs appen smidigt lokalt istället.
         const myFirebaseConfig = {
-          apiKey: "DIN_EGEN_FIREBASE_NYCKEL_HÄR",
-          authDomain: "ditt-projekt.firebaseapp.com",
-          projectId: "ditt-projekt",
-          storageBucket: "ditt-projekt.firebasestorage.app",
-          messagingSenderId: "1234567890",
-          appId: "1:1234567890:web:abcdef12345678"
-        }; 
+  apiKey: "AIzaSyANEkApp6RLf2dXSiIu_cE5wyDp1dSZuRk",
+  authDomain: "kockbot-f0e5f.firebaseapp.com",
+  projectId: "kockbot-f0e5f",
+  storageBucket: "kockbot-f0e5f.firebasestorage.app",
+  messagingSenderId: "132836094378",
+  appId: "1:132836094378:web:98106b8982f6c47f61bbd3",
+  measurementId: "G-DDW0GD700Z"
+}; 
 
         let auth = null;
         let db = null;
@@ -210,8 +211,6 @@
           return <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm border ${colors[pStr] || colors['veg']}`}>{protein || 'VEG'}</span>;
         };
 
-        const DEFAULT_RECIPES = [];
-
         // =========================================================================
         // HUVUDKOMPONENT
         // =========================================================================
@@ -229,7 +228,7 @@
 
           const [householdId, setHouseholdId] = useState(() => localStorage.getItem('smartMatsedel_householdId') || Math.random().toString(36).substring(2, 8).toUpperCase());
           const [showShareModal, setShowShareModal] = useState(false);
-          const [showApiModal, setShowApiModal] = useState(false); // NY: Visar API-nyckel rutan
+          const [showApiModal, setShowApiModal] = useState(false);
           const [isPlanLocked, setIsPlanLocked] = useState(() => localStorage.getItem('smartMatsedel_planLocked') === 'true');
           const [planStartOffset, setPlanStartOffset] = useState(() => Number(localStorage.getItem('smartMatsedel_planStartOffset')) || 0);
 
@@ -257,7 +256,9 @@
           
           const fileInputRef = useRef(null);
           const imageUploadRef = useRef(null);
-          const [uploadingForRecipeId, setUploadingForRecipeId] = useState(null);
+          // Håller reda på vilket recept som får bilden
+          const uploadingRecipeIdRef = useRef(null);
+
           const [deferredPrompt, setDeferredPrompt] = useState(null);
           const [isIOS, setIsIOS] = useState(false);
           const [isStandalone, setIsStandalone] = useState(false);
@@ -315,7 +316,12 @@
 
           const updateDb = async (updates) => {
             if (!user || !db || !householdId) return;
-            try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); } catch (err) {}
+            try { 
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); 
+            } catch (err) {
+              console.error("Firebase spara fel (kanske över storleksgräns):", err);
+              showToast("Varning: Nådde molnets maxgräns. Datan sparas dock lokalt.");
+            }
           };
 
           // Spara lokalt
@@ -348,27 +354,43 @@
             }
           };
 
+          // FUNKTION FÖR EGEN BILDUPPLADDNING PÅ RECEPT (Fixad för att stanna kvar permanent)
+          const triggerImageUpload = (e, recipeId) => {
+            e.stopPropagation();
+            uploadingRecipeIdRef.current = recipeId;
+            if (imageUploadRef.current) imageUploadRef.current.click();
+          };
+
           const handleImageFileChange = (e) => {
             const file = e.target.files?.[0];
-            if (!file || !uploadingForRecipeId) return;
+            const targetId = uploadingRecipeIdRef.current;
+            if (!file || !targetId) return;
+
             const reader = new FileReader();
             reader.onload = (event) => {
               const img = new Image();
               img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width, height = img.height;
-                const MAX_DIM = 500; // Komprimering för att få plats i databas
+                
+                // Aggressiv komprimering så bilden inte nollställs pga 1MB databas-gräns
+                const MAX_DIM = 400; 
                 if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                 else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                 
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
                 
-                const newRecipes = recipes.map(r => r.id === uploadingForRecipeId ? { ...r, customImage: dataUrl } : r);
-                setRecipes(newRecipes); updateDb({ recipes: newRecipes });
-                showToast("Bilden har sparats permanent!");
-                setUploadingForRecipeId(null);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
+                
+                setRecipes(prevRecipes => {
+                  const newRecipes = prevRecipes.map(r => r.id === targetId ? { ...r, customImage: dataUrl } : r);
+                  updateDb({ recipes: newRecipes });
+                  return newRecipes;
+                });
+                
+                showToast("Din bild har sparats permanent!");
+                uploadingRecipeIdRef.current = null;
                 if (imageUploadRef.current) imageUploadRef.current.value = '';
               };
               img.src = event.target.result;
