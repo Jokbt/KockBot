@@ -46,15 +46,6 @@
     }
     </script>
 
-    <!-- PDF.js för lokal PDF-textextraktion i webbläsaren -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-      if (window['pdfjsLib']) {
-        window['pdfjsLib'].GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-    </script>
-
     <style>
       .hide-scrollbar::-webkit-scrollbar { display: none; }
       .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -78,16 +69,17 @@
         // =========================================================================
         // API OCH FIREBASE CONFIG
         // =========================================================================
-        const apiKey = "AIzaSyAnFKZemnkW5OJ8DzbSCvFQEfSIWw8XD8Q"; 
+        const apiKey = ""; // LÄMNA DENNA TOM! Appen frågar efter din Gemini-nyckel (via 🔑-ikonen).
 
+        // För GitHub/egen hosting: Byt ut till din egen gratis Firebase config OM du vill ha 
+        // molnsynk mellan flera enheter. Lämnas den så här körs appen smidigt lokalt istället.
         const myFirebaseConfig = {
-          apiKey: "AIzaSyANEkApp6RLf2dXSiIu_cE5wyDp1dSZuRk",
-          authDomain: "kockbot-f0e5f.firebaseapp.com",
-          projectId: "kockbot-f0e5f",
-          storageBucket: "kockbot-f0e5f.firebasestorage.app",
-          messagingSenderId: "132836094378",
-          appId: "1:132836094378:web:98106b8982f6c47f61bbd3",
-          measurementId: "G-DDW0GD700Z"
+          apiKey: "DIN_EGEN_FIREBASE_NYCKEL_HÄR",
+          authDomain: "ditt-projekt.firebaseapp.com",
+          projectId: "ditt-projekt",
+          storageBucket: "ditt-projekt.firebasestorage.app",
+          messagingSenderId: "1234567890",
+          appId: "1:1234567890:web:abcdef12345678"
         }; 
 
         let auth = null;
@@ -96,7 +88,10 @@
 
         try {
           const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-          const finalConfig = (myFirebaseConfig && myFirebaseConfig.apiKey) ? myFirebaseConfig : (configStr ? JSON.parse(configStr) : null);
+          // Om nyckeln inte är ändrad, strunta i Firebase och kör lokalt för att slippa felmeddelanden
+          const isDummyKey = myFirebaseConfig && myFirebaseConfig.apiKey && myFirebaseConfig.apiKey.includes("DIN_EGEN");
+          const finalConfig = (myFirebaseConfig && myFirebaseConfig.apiKey && !isDummyKey) ? myFirebaseConfig : (configStr ? JSON.parse(configStr) : null);
+          
           if (finalConfig && Object.keys(finalConfig).length > 0) {
             const app = initializeApp(finalConfig);
             auth = getAuth(app);
@@ -155,7 +150,9 @@
         };
 
         const normalizeName = (name) => {
-          let n = name.toLowerCase().trim();
+          // Rensa text inuti parenteser (t.ex. "(jonas sås)") innan vi normaliserar
+          let n = name.replace(/\s*\(.*?\)\s*/g, ' ').toLowerCase().trim();
+          
           const exactSynonyms = {
             'creme fraiche': 'crème fraiche', 'crème fraîche': 'crème fraiche', 'krossade tomater': 'krossad tomat',
             'gullök': 'gul lök', 'gula lökar': 'gul lök', 'rödlök': 'röd lök', 'röda lökar': 'röd lök',
@@ -441,9 +438,8 @@
             const customKey = localStorage.getItem('smartMatsedel_apiKey');
             const activeKey = customKey || apiKey;
             
-            // Privata API-nycklar har inte tillgång till Googles interna preview-modell,
-            // så vi byter automatiskt till standard 'gemini-2.5-flash' när din egen nyckel används (t.ex. på Github).
-            const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash";
+            // Vi använder 'gemini-2.5-flash' när din egen nyckel används (t.ex. på Github).
+            const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
             
             const parts = [{ text: promptText }];
@@ -467,80 +463,28 @@
           const handlePdfUpload = async (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
-
-            // Kontrollera att API-nyckel finns innan vi börjar
-            const customKey = localStorage.getItem('smartMatsedel_apiKey');
-            if (!customKey && !apiKey) {
-              setShowApiModal(true);
-              showToast("Lägg till din Gemini API-nyckel för att importera PDF.");
-              if (fileInputRef.current) fileInputRef.current.value = '';
-              return;
-            }
-
-            // Kontrollera att pdf.js är laddad
-            if (!window.pdfjsLib) {
-              showToast("PDF-biblioteket laddas fortfarande, försök igen om en stund.");
-              if (fileInputRef.current) fileInputRef.current.value = '';
-              return;
-            }
-
-            setIsUploadingPdf(true);
-            showToast("Läser in PDF i webbläsaren...");
+            setIsUploadingPdf(true); showToast("Läser in PDF... (Kan ta upp till 1 minut)");
             try {
-              // 1. Läs PDF-fil som ArrayBuffer
-              const arrayBuffer = await file.arrayBuffer();
-
-              // 2. Extrahera text lokalt med pdf.js (alla sidor)
-              const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-              let fullText = '';
-              for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                const pageText = content.items.map(it => it.str).join(' ');
-                fullText += `\n\n--- Sida ${i} ---\n${pageText}`;
-              }
-
-              if (!fullText.trim()) {
-                throw new Error("Kunde inte läsa text från PDF:en (kanske en skannad bild?).");
-              }
-
-              // Begränsa textstorlek för att hålla API-anropet smidigt
-              const MAX_CHARS = 60000;
-              const textForAi = fullText.length > MAX_CHARS
-                ? fullText.slice(0, MAX_CHARS) + "\n\n[Texten avkortades]"
-                : fullText;
-
-              showToast("Tolkar recept med AI...");
-
-              // 3. Skicka extraherad text till Gemini istället för hela PDF:en
-              const prompt = `Extrahera ALLA recept ur följande text från en kokbok/PDF. ` +
-                `Returnera en lista med strukturerade recept enligt schemat. ` +
-                `Översätt mängder och enheter till svenska om det behövs. ` +
-                `Texten:\n\n${textForAi}`;
-              const data = await callGemini(prompt, null, null, { type: "ARRAY", items: recipeSchema });
-
-              const list = Array.isArray(data) ? data : [data];
-              const newRecs = list
-                .filter(r => r && r.name)
-                .map(r => ({ ...r, id: 'pdf_' + Date.now() + Math.random(), ingredients: r.ingredients || [], instructions: r.instructions || '' }));
-
-              if (!newRecs.length) throw new Error("Inga recept hittades i PDF:en.");
-
-              const merged = [...recipes, ...newRecs];
-              setRecipes(merged); updateDb({ recipes: merged });
-              showToast(`${newRecs.length} recept importerades!`);
-            } catch (err) {
-              console.error("PDF Upload Error:", err);
-              if (err.message && (err.message.includes("API key not valid") || err.message.includes("API_KEY_INVALID"))) {
-                setShowApiModal(true);
-                showToast("API-nyckeln är ogiltig! Kontrollera den.");
-              } else {
-                showToast("Fel: " + (err.message || 'okänt fel').substring(0, 60));
-              }
-            } finally {
-              setIsUploadingPdf(false);
-              if (fileInputRef.current) fileInputRef.current.value = '';
-            }
+              const reader = new FileReader();
+              reader.onloadend = async () => {
+                try {
+                  const data = await callGemini("Extrahera alla recept från denna PDF.", reader.result.split(',')[1], "application/pdf", { type: "ARRAY", items: recipeSchema });
+                  const newRecs = (Array.isArray(data) ? data : [data]).map(r => ({ ...r, id: 'pdf_' + Date.now() + Math.random(), ingredients: r.ingredients || [], instructions: r.instructions || '' }));
+                  setRecipes([...recipes, ...newRecs]); updateDb({ recipes: [...recipes, ...newRecs] });
+                  showToast(`${newRecs.length} recept importerades!`);
+                } catch (err) { 
+                  console.error("PDF Upload Error:", err);
+                  if (err.message.includes("API key not valid") || err.message.includes("API_KEY_INVALID")) {
+                      setShowApiModal(true);
+                      showToast("API-nyckeln är ogiltig! Kontrollera den.");
+                  } else {
+                      showToast("Fel: " + err.message.substring(0, 40) + "..."); 
+                  }
+                }
+                finally { setIsUploadingPdf(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+              };
+              reader.readAsDataURL(file);
+            } catch (err) { setIsUploadingPdf(false); }
           };
 
           const handleGenerateInspiration = async () => {
@@ -571,7 +515,11 @@
               day.recipe.ingredients.forEach(ing => {
                 if (!ing?.name) return;
                 const normName = normalizeName(ing.name); 
-                if (normName.toLowerCase() === 'vatten') return; // TA BORT VATTEN
+                
+                // Filtrera bort vatten, salt, peppar och tomma namn (om det bara var en parentes)
+                const skipList = ['vatten', 'salt', 'peppar', 'svartpeppar', 'vitpeppar', 'flingsalt', 'salt och peppar', 'salt & peppar'];
+                if (!normName || skipList.includes(normName.toLowerCase())) return; 
+
                 const normUnit = normalizeUnit(ing.unit);
                 const amt = parseFloat(ing.amount) || 0; 
                 if (!listMap[normName]) listMap[normName] = { name: normName, amounts: {}, category: getCategory(normName) };
