@@ -443,7 +443,7 @@
             
             // Privata API-nycklar har inte tillgång till Googles interna preview-modell,
             // så vi byter automatiskt till standard 'gemini-2.5-flash' när din egen nyckel används (t.ex. på Github).
-            const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+            const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
             
             const parts = [{ text: promptText }];
