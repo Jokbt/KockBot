@@ -60,7 +60,7 @@
         import { 
           Calendar, ShoppingCart, BookOpen, RefreshCw, Info, 
           X, CalendarDays, Plus, Upload, Trash2, Save, Users,
-          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock, ChevronDown, ImagePlus, Sun, Moon, Key
+          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock, ChevronDown, ImagePlus, Sun, Moon, Key, Edit
         } from 'lucide-react';
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
@@ -253,7 +253,11 @@
 
           const [selectedCollection, setSelectedCollection] = useState('Alla');
           const [selectedRecipeId, setSelectedRecipeId] = useState(null);
+          
+          // Nya states för att hantera redigering
           const [showAddModal, setShowAddModal] = useState(false);
+          const [editingRecipeId, setEditingRecipeId] = useState(null);
+
           const [isUploadingPdf, setIsUploadingPdf] = useState(false);
           
           const fileInputRef = useRef(null);
@@ -321,8 +325,8 @@
             try { 
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); 
             } catch (err) {
-              console.error("Firebase spara fel (kanske över storleksgräns):", err);
-              showToast("Varning: Nådde molnets maxgräns. Datan sparas dock lokalt.");
+              console.error("Firebase spara fel:", err);
+              showToast("Varning: Datan kunde inte sparas i molnet, men sparas lokalt.");
             }
           };
 
@@ -356,7 +360,6 @@
             }
           };
 
-          // FUNKTION FÖR EGEN BILDUPPLADDNING PÅ RECEPT (Fixad för att stanna kvar permanent)
           const triggerImageUpload = (e, recipeId) => {
             e.stopPropagation();
             uploadingRecipeIdRef.current = recipeId;
@@ -374,15 +377,12 @@
               img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width, height = img.height;
-                
-                // Aggressiv komprimering så bilden inte nollställs pga 1MB databas-gräns
                 const MAX_DIM = 400; 
                 if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                 else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                 
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
                 
                 setRecipes(prevRecipes => {
@@ -409,7 +409,6 @@
               let candidates = recipes.filter(r => r.protein === targetProtein);
               if (candidates.length === 0) candidates = recipes;
               
-              // Kopiera receptet och ta bort den tunga bildkoden innan vi sparar det i veckoplanen
               const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
               const recipeToSave = { ...selectedRecipe };
               delete recipeToSave.customImage; 
@@ -433,7 +432,6 @@
             if (candidates.length === 0) candidates = recipes.filter(r => r.id !== currentPlan[index].recipe?.id);
             if (candidates.length === 0) candidates = recipes;
             
-            // Kopiera det nya receptet och ta bort den tunga bildkoden
             const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
             const recipeToSave = { ...selectedRecipe };
             delete recipeToSave.customImage;
@@ -474,7 +472,6 @@
             const customKey = localStorage.getItem('smartMatsedel_apiKey');
             const activeKey = customKey || apiKey;
             
-            // Vi använder 'gemini-2.5-flash' när din egen nyckel används (t.ex. på Github).
             const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
             
@@ -644,16 +641,33 @@
           };
 
           const AddRecipeModal = () => {
-            const [formData, setFormData] = useState({ name: '', protein: 'kött', collection: 'Spaghetti- & pastarätter', time: '30 min', ingredients: [{ name: '', amount: 1, unit: 'st' }], instructions: '' });
+            const isEditing = !!editingRecipeId;
+            const recipeToEdit = isEditing ? recipes.find(r => r.id === editingRecipeId) : null;
+            
+            const [formData, setFormData] = useState(() => {
+              if (recipeToEdit) return JSON.parse(JSON.stringify(recipeToEdit));
+              return { name: '', protein: 'kött', collection: 'Spaghetti- & pastarätter', time: '30 min', ingredients: [{ name: '', amount: 1, unit: 'st' }], instructions: '' };
+            });
             const [isScanning, setIsScanning] = useState(false);
             const cameraInputRef = useRef(null);
 
-            if (!showAddModal) return null;
+            const closeModal = () => {
+              setShowAddModal(false);
+              setEditingRecipeId(null);
+            };
 
             const handleSave = () => {
               if (!formData.name) return showToast("Receptet måste ha ett namn.");
-              const newRecipes = [...recipes, { ...formData, id: 'man_' + Date.now() }];
-              setRecipes(newRecipes); updateDb({ recipes: newRecipes }); setShowAddModal(false); showToast("Sparades!");
+              
+              if (isEditing) {
+                const updatedRecipes = recipes.map(r => r.id === editingRecipeId ? { ...formData, id: r.id, customImage: r.customImage } : r);
+                setRecipes(updatedRecipes); updateDb({ recipes: updatedRecipes }); 
+                closeModal(); showToast("Receptet uppdaterades!");
+              } else {
+                const newRecipes = [...recipes, { ...formData, id: 'man_' + Date.now() }];
+                setRecipes(newRecipes); updateDb({ recipes: newRecipes }); 
+                closeModal(); showToast("Sparades!");
+              }
             };
 
             const handleScanRecipe = async (event) => {
@@ -681,9 +695,9 @@
             };
 
             return (
-              <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setShowAddModal(false)}>
+              <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={closeModal}>
                 <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl my-8 flex flex-col border border-slate-200/60 dark:border-slate-700" style={{ maxHeight: 'calc(100vh - 4rem)' }} onClick={e => e.stopPropagation()}>
-                  <div className="p-6 border-b flex justify-between items-center rounded-t-3xl"><h2 className="text-xl font-bold dark:text-slate-100">Skapa recept</h2><button onClick={() => setShowAddModal(false)} className="text-slate-400"><X size={20} /></button></div>
+                  <div className="p-6 border-b flex justify-between items-center rounded-t-3xl"><h2 className="text-xl font-bold dark:text-slate-100">{isEditing ? 'Redigera recept' : 'Skapa recept'}</h2><button onClick={closeModal} className="text-slate-400"><X size={20} /></button></div>
                   <div className="p-6 space-y-6 overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-900/50">
                     <div className="bg-[#f5f8f2] dark:bg-[#171f0d]/30 border border-[#e4ede0] dark:border-[#293819] rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
                       <div><h3 className="font-bold text-[#293819] dark:text-[#9eb582]">Recept framför dig?</h3><p className="text-[#526e35] dark:text-[#82a061] text-sm">Fota av så fyller vi i automatiskt!</p></div>
@@ -712,7 +726,7 @@
                     <div><label className="block text-sm font-semibold dark:text-slate-300 mb-1.5">Gör så här</label><textarea value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} className="w-full px-4 py-3 bg-white dark:bg-slate-800 border rounded-xl outline-none min-h-[120px] dark:text-slate-100" /></div>
                   </div>
                   <div className="p-6 border-t flex justify-end gap-3 rounded-b-3xl">
-                    <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 text-slate-600 dark:text-slate-300 font-semibold">Avbryt</button>
+                    <button onClick={closeModal} className="px-6 py-2.5 text-slate-600 dark:text-slate-300 font-semibold">Avbryt</button>
                     <button onClick={handleSave} disabled={!formData.name} className="px-6 py-2.5 bg-[#526e35] text-white rounded-xl font-semibold flex items-center gap-2"><Save size={18} /> Spara</button>
                   </div>
                 </div>
@@ -725,14 +739,26 @@
             if (!recipe) return null;
             return (
               <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={onClose}>
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg my-8 flex flex-col border border-slate-200/60 dark:border-slate-700" style={{ maxHeight: 'calc(100vh - 4rem)' }} onClick={e => e.stopPropagation()}>
-                  <div className="p-4 border-b flex justify-end items-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-t-3xl absolute top-0 w-full z-20">
+                {/* LÄS IN: relative och overflow-hidden håller menyraden på plats */}
+                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg my-8 flex flex-col border border-slate-200/60 dark:border-slate-700 relative overflow-hidden" style={{ maxHeight: 'calc(100vh - 4rem)' }} onClick={e => e.stopPropagation()}>
+                  
+                  {/* Uppdaterad menyrad som nu håller sig exakt inom rutans väggar (left-0 right-0) */}
+                  <div className="p-4 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-white/90 dark:bg-slate-800/90 backdrop-blur-md absolute top-0 left-0 right-0 z-20">
+                    <button onClick={() => { deleteRecipe(recipe.id); onClose(); }} className="text-red-500 bg-red-50 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-slate-600 rounded-full p-2.5 shadow-sm border border-red-100 dark:border-slate-600 transition-colors flex items-center gap-1.5 px-3" title="Ta bort recept">
+                      <Trash2 size={18} /> <span className="text-xs font-bold hidden sm:inline">Radera</span>
+                    </button>
                     <div className="flex gap-2">
-                      <button onClick={() => { deleteRecipe(recipe.id); onClose(); }} className="text-red-400 bg-white dark:bg-slate-700 rounded-full p-2 shadow-sm border"><Trash2 size={20} /></button>
-                      <button onClick={() => { onClose(); setImgLoading(true); }} className="text-slate-400 bg-white dark:bg-slate-700 rounded-full p-2 shadow-sm border"><X size={20} /></button>
+                      <button onClick={() => { setEditingRecipeId(recipe.id); onClose(); }} className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-full p-2.5 shadow-sm border transition-colors" title="Redigera recept">
+                        <Edit size={20} />
+                      </button>
+                      <button onClick={() => { onClose(); setImgLoading(true); }} className="text-slate-400 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-full p-2.5 shadow-sm border transition-colors" title="Stäng">
+                        <X size={20} />
+                      </button>
                     </div>
                   </div>
-                  <div className="p-6 pt-20 overflow-y-auto flex-1">
+                  
+                  {/* pt-24 kompenserar för att den flytande menyn nu är i toppen */}
+                  <div className="p-6 pt-24 overflow-y-auto flex-1">
                     <div className="mb-6 relative">
                       <button onClick={e => triggerImageUpload(e, recipe.id)} className="absolute top-0 right-0 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-500 rounded-full shadow-sm border z-30" title="Lägg till egen bild"><ImagePlus size={20} /></button>
                       <span className="text-xs font-bold text-[#526e35] dark:text-[#82a061] uppercase tracking-widest mb-2 block">{recipe.collection}</span>
@@ -977,7 +1003,7 @@
 
               <ApiModal />
               {selectedRecipeId && <RecipeModal recipe={recipes.find(r => r.id === selectedRecipeId)} onClose={() => setSelectedRecipeId(null)} />}
-              <AddRecipeModal />
+              {(showAddModal || editingRecipeId) && <AddRecipeModal />}
               <ShareModal />
             </div>
           </div>
