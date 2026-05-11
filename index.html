@@ -64,7 +64,7 @@
         } from 'lucide-react';
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // =========================================================================
         // API OCH FIREBASE CONFIG
@@ -288,7 +288,7 @@
             isDarkMode ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark');
           }, [isDarkMode]);
 
-          // Auth och DB Sync
+          // Auth
           useEffect(() => {
             if (!auth) return;
             const initAuth = async () => {
@@ -302,31 +302,88 @@
             return onAuthStateChanged(auth, setUser);
           }, []);
 
+          // Databas Sync (Optimerad med separata dokument för Recept)
           useEffect(() => {
             if (!user || !db || !householdId) return;
+            
+            // 1. Lyssna på Inställningar & Matsedel
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
-            const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            const unsubSettings = onSnapshot(docRef, (docSnap) => {
               if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.recipes) setRecipes(data.recipes);
+                
+                // MIGRATION: Om det finns gamla recept i "klumpen", flytta dem till den nya mappstrukturen
+                if (data.recipes && data.recipes.length > 0) {
+                  data.recipes.forEach(recipe => {
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipe.id), recipe).catch(() => {});
+                  });
+                  // Töm den gamla arrayen så att utrymmet frigörs permanent
+                  setDoc(docRef, { recipes: [] }, { merge: true }).catch(() => {});
+                }
+
                 if (data.mealPlan) setMealPlan(data.mealPlan);
                 if (data.planType) setPlanType(data.planType);
                 if (data.checkedListItems) setCheckedListItems(data.checkedListItems);
                 if (data.isPlanLocked !== undefined) setIsPlanLocked(data.isPlanLocked);
                 if (data.planStartOffset !== undefined) setPlanStartOffset(data.planStartOffset);
+              } else {
+                 // Initiera nytt hushåll i molnet med nuvarande lokala data
+                 setDoc(docRef, { mealPlan, planType, checkedListItems, isPlanLocked, planStartOffset }, { merge: true }).catch(console.error);
+                 if (recipes.length > 0) {
+                     recipes.forEach(r => saveRecipeToDb(r));
+                 }
               }
               setIsDbLoaded(true);
             }, () => setIsDbLoaded(true));
-            return () => unsubscribe();
+
+            // 2. Lyssna på det nya Recept-biblioteket (obegränsad storlek!)
+            const recipesRef = collection(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes');
+            const unsubRecipes = onSnapshot(recipesRef, (snapshot) => {
+              const loadedRecipes = [];
+              snapshot.forEach((doc) => {
+                loadedRecipes.push({ ...doc.data(), id: doc.id });
+              });
+              
+              // Endast uppdatera recept om det faktiskt finns några nedladdade eller om det inte är första laddningen lokalt
+              if(loadedRecipes.length > 0 || !snapshot.metadata.fromCache) {
+                 setRecipes(loadedRecipes);
+              }
+            }, (err) => { console.error("Recept sync fel:", err); });
+
+            return () => {
+              unsubSettings();
+              unsubRecipes();
+            };
           }, [user, householdId]);
 
-          const updateDb = async (updates) => {
+          // Ny funktion för att enbart spara inställningar
+          const updateSettingsInDb = async (updates) => {
             if (!user || !db || !householdId) return;
             try { 
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); 
             } catch (err) {
               console.error("Firebase spara fel:", err);
-              showToast("Varning: Datan kunde inte sparas i molnet, men sparas lokalt.");
+            }
+          };
+
+          // Ny funktion för att spara/skriva över ETT recept åt gången (Ingen 1 MB gräns längre!)
+          const saveRecipeToDb = async (recipe) => {
+            if (!user || !db || !householdId) return;
+            try {
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipe.id), recipe);
+            } catch (err) {
+              console.error("Fel vid sparande av recept:", err);
+              showToast("Varning: Molnet kunde inte spara bilden. Den sparas dock lokalt på din telefon.");
+            }
+          };
+
+          // Ny funktion för att ta bort ETT recept ur molnet
+          const deleteRecipeFromDb = async (recipeId) => {
+            if (!user || !db || !householdId) return;
+            try {
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipeId));
+            } catch (err) {
+              console.error("Fel vid radering av recept:", err);
             }
           };
 
@@ -385,13 +442,14 @@
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
                 
-                setRecipes(prevRecipes => {
-                  const newRecipes = prevRecipes.map(r => r.id === targetId ? { ...r, customImage: dataUrl } : r);
-                  updateDb({ recipes: newRecipes });
-                  return newRecipes;
-                });
+                const currentRecipe = recipes.find(r => r.id === targetId);
+                if (currentRecipe) {
+                   const updatedRecipe = { ...currentRecipe, customImage: dataUrl };
+                   setRecipes(prevRecipes => prevRecipes.map(r => r.id === targetId ? updatedRecipe : r));
+                   saveRecipeToDb(updatedRecipe); // Sparar nu direkt till sitt egna dokument!
+                   showToast("Din bild har sparats permanent!");
+                }
                 
-                showToast("Din bild har sparats permanent!");
                 uploadingRecipeIdRef.current = null;
                 if (imageUploadRef.current) imageUploadRef.current.value = '';
               };
@@ -416,11 +474,11 @@
               newPlan.push({ dayIndex: i, dayName: DAYS[i % 7], weekNumber: Math.floor(i / 7) + 1, recipe: recipeToSave });
             }
             setMealPlan(newPlan); setPlanType(type); setCheckedListItems({}); setIsPlanLocked(false);
-            updateDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
+            updateSettingsInDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
           };
 
           const toggleLock = () => {
-            setIsPlanLocked(!isPlanLocked); updateDb({ isPlanLocked: !isPlanLocked });
+            setIsPlanLocked(!isPlanLocked); updateSettingsInDb({ isPlanLocked: !isPlanLocked });
             showToast(!isPlanLocked ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
           };
 
@@ -437,18 +495,19 @@
             delete recipeToSave.customImage;
             
             currentPlan[index].recipe = recipeToSave;
-            setMealPlan(currentPlan); updateDb({ mealPlan: currentPlan });
+            setMealPlan(currentPlan); updateSettingsInDb({ mealPlan: currentPlan });
           };
 
           const deleteRecipe = (id) => {
-            const newRecipes = recipes.filter(r => r.id !== id);
-            setRecipes(newRecipes); updateDb({ recipes: newRecipes }); showToast("Receptet togs bort.");
+            setRecipes(prev => prev.filter(r => r.id !== id)); 
+            deleteRecipeFromDb(id); 
+            showToast("Receptet togs bort.");
           };
 
           const clearDayRecipe = (index) => {
             const currentPlan = [...mealPlan];
             currentPlan[index].recipe = null;
-            setMealPlan(currentPlan); updateDb({ mealPlan: currentPlan });
+            setMealPlan(currentPlan); updateSettingsInDb({ mealPlan: currentPlan });
           };
 
           const fetchWithBackoff = async (url, options, maxRetries = 3) => {
@@ -503,7 +562,9 @@
                 try {
                   const data = await callGemini("Extrahera alla recept från denna PDF.", reader.result.split(',')[1], "application/pdf", { type: "ARRAY", items: recipeSchema });
                   const newRecs = (Array.isArray(data) ? data : [data]).map(r => ({ ...r, id: 'pdf_' + Date.now() + Math.random(), ingredients: r.ingredients || [], instructions: r.instructions || '' }));
-                  setRecipes([...recipes, ...newRecs]); updateDb({ recipes: [...recipes, ...newRecs] });
+                  
+                  setRecipes(prev => [...prev, ...newRecs]); 
+                  newRecs.forEach(r => saveRecipeToDb(r));
                   showToast(`${newRecs.length} recept importerades!`);
                 } catch (err) { 
                   console.error("PDF Upload Error:", err);
@@ -537,6 +598,16 @@
               }
             }
             finally { setIsGeneratingInspiration(false); }
+          };
+          
+          const saveInspiredRecipe = () => {
+             if (!inspiredRecipe) return;
+             setRecipes(prev => [inspiredRecipe, ...prev]);
+             saveRecipeToDb(inspiredRecipe);
+             setInspiredRecipe(null); 
+             setInspirationQuery(''); 
+             setActiveTab('recipes'); 
+             showToast("Sparades i boken!");
           };
 
           // INKÖPSLISTA LOGIK
@@ -660,12 +731,14 @@
               if (!formData.name) return showToast("Receptet måste ha ett namn.");
               
               if (isEditing) {
-                const updatedRecipes = recipes.map(r => r.id === editingRecipeId ? { ...formData, id: r.id, customImage: r.customImage } : r);
-                setRecipes(updatedRecipes); updateDb({ recipes: updatedRecipes }); 
+                const updatedRecipe = { ...formData, id: editingRecipeId, customImage: recipeToEdit.customImage };
+                setRecipes(prev => prev.map(r => r.id === editingRecipeId ? updatedRecipe : r));
+                saveRecipeToDb(updatedRecipe); 
                 closeModal(); showToast("Receptet uppdaterades!");
               } else {
-                const newRecipes = [...recipes, { ...formData, id: 'man_' + Date.now() }];
-                setRecipes(newRecipes); updateDb({ recipes: newRecipes }); 
+                const newRecipe = { ...formData, id: 'man_' + Date.now() };
+                setRecipes(prev => [...prev, newRecipe]);
+                saveRecipeToDb(newRecipe); 
                 closeModal(); showToast("Sparades!");
               }
             };
@@ -847,7 +920,7 @@
                                 <div className="flex items-center gap-4"><div className="bg-[#e4ede0] dark:bg-[#171f0d]/40 p-3.5 rounded-2xl shadow-inner border border-[#f5f8f2] hidden sm:block"><Calendar size={28} className="text-[#526e35]" /></div><div><h2 className="text-2xl sm:text-3xl font-black drop-shadow-sm leading-tight">Din Matsedel</h2><p className="text-slate-500 mt-1">Planera smart och spara tid.</p></div></div>
                                 {!isPlanLocked ? (
                                   <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                                      <div className="relative flex-1 sm:flex-none"><select value={planStartOffset} onChange={e => { const val = Number(e.target.value); setPlanStartOffset(val); updateDb({ planStartOffset: val }); }} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer"><option value={0}>Denna vecka</option><option value={1}>Nästa vecka</option><option value={2}>Om 2 veckor</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div></div>
+                                      <div className="relative flex-1 sm:flex-none"><select value={planStartOffset} onChange={e => { const val = Number(e.target.value); setPlanStartOffset(val); updateSettingsInDb({ planStartOffset: val }); }} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer"><option value={0}>Denna vecka</option><option value={1}>Nästa vecka</option><option value={2}>Om 2 veckor</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div></div>
                                       <div className="relative flex-1 sm:flex-none"><select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer"><option value="week">1 vecka</option><option value="2weeks">2 veckor</option><option value="3weeks">3 veckor</option><option value="month">4 veckor</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div></div>
                                       <button onClick={() => generatePlan(planType)} className="flex-1 sm:flex-none px-6 py-3.5 bg-[#526e35] text-white rounded-2xl font-black text-sm active:scale-95 shadow-lg flex items-center justify-center gap-2"><RefreshCw size={16} strokeWidth={3} /> Slumpa</button>
                                   </div>
