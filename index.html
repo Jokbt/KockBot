@@ -408,11 +408,14 @@
               const targetProtein = CATEGORY_CYCLE[i % CATEGORY_CYCLE.length]; 
               let candidates = recipes.filter(r => r.protein === targetProtein);
               if (candidates.length === 0) candidates = recipes;
-              newPlan.push({ dayIndex: i, dayName: DAYS[i % 7], weekNumber: Math.floor(i / 7) + 1, recipe: candidates[Math.floor(Math.random() * candidates.length)] });
-            }
-            setMealPlan(newPlan); setPlanType(type); setCheckedListItems({}); setIsPlanLocked(false);
-            updateDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
-          };
+              
+              // Kopiera receptet och ta bort den tunga bildkoden innan vi sparar det i veckoplanen
+              const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
+              const recipeToSave = { ...selectedRecipe };
+              delete recipeToSave.customImage; 
+              
+              newPlan.push({ dayIndex: i, dayName: DAYS[i % 7], weekNumber: Math.floor(i / 7) + 1, recipe: recipeToSave });
+            };
 
           const toggleLock = () => {
             setIsPlanLocked(!isPlanLocked); updateDb({ isPlanLocked: !isPlanLocked });
@@ -426,7 +429,13 @@
             let candidates = recipes.filter(r => r.protein === targetProtein && r.id !== currentPlan[index].recipe?.id);
             if (candidates.length === 0) candidates = recipes.filter(r => r.id !== currentPlan[index].recipe?.id);
             if (candidates.length === 0) candidates = recipes;
-            currentPlan[index].recipe = candidates[Math.floor(Math.random() * candidates.length)];
+            
+            // Kopiera det nya receptet och ta bort den tunga bildkoden
+            const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
+            const recipeToSave = { ...selectedRecipe };
+            delete recipeToSave.customImage;
+            
+            currentPlan[index].recipe = recipeToSave;
             setMealPlan(currentPlan); updateDb({ mealPlan: currentPlan });
           };
 
