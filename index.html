@@ -247,16 +247,13 @@
           const [inspiredRecipe, setInspiredRecipe] = useState(null);
 
           const [recipes, setRecipes] = useState(() => {
-            const saved = localStorage.getItem('smartMatsedel_recipes');
-            return saved ? JSON.parse(saved) : [];
+            try { return JSON.parse(localStorage.getItem('smartMatsedel_recipes')) || []; } catch(e) { return []; }
           });
           const [mealPlan, setMealPlan] = useState(() => {
-            const saved = localStorage.getItem('smartMatsedel_mealPlan');
-            return saved ? JSON.parse(saved) : [];
+            try { return JSON.parse(localStorage.getItem('smartMatsedel_mealPlan')) || []; } catch(e) { return []; }
           });
           const [checkedListItems, setCheckedListItems] = useState(() => {
-            const saved = localStorage.getItem('smartMatsedel_checkedListItems');
-            return saved ? JSON.parse(saved) : {};
+            try { return JSON.parse(localStorage.getItem('smartMatsedel_checkedListItems')) || {}; } catch(e) { return {}; }
           });
 
           const [selectedCollection, setSelectedCollection] = useState('Alla');
@@ -376,12 +373,14 @@
 
           // Ny funktion för att spara/skriva över ETT recept åt gången (Ingen 1 MB gräns längre!)
           const saveRecipeToDb = async (recipe) => {
-            if (!user || !db || !householdId) return;
+            if (!user || !db || !householdId) return false;
             try {
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipe.id), recipe);
+              return true;
             } catch (err) {
               console.error("Fel vid sparande av recept:", err);
-              showToast("Varning: Molnet kunde inte spara bilden. Den sparas dock lokalt på din telefon.");
+              showToast("Varning: Bilden var lite för tung för molnet. Sparades bara lokalt.");
+              return false;
             }
           };
 
@@ -395,14 +394,14 @@
             }
           };
 
-          // Spara lokalt
-          useEffect(() => { localStorage.setItem('smartMatsedel_householdId', householdId); }, [householdId]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); }, [recipes]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); }, [mealPlan]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_planType', planType); }, [planType]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); }, [checkedListItems]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); }, [isPlanLocked]);
-          useEffect(() => { localStorage.setItem('smartMatsedel_planStartOffset', planStartOffset); }, [planStartOffset]);
+          // Spara lokalt med felhantering för att förhindra "Vit skärm" när telefonens minne är fullt (QuotaExceeded)
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_householdId', householdId); } catch(e){} }, [householdId]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); } catch(e){ console.warn("Lokal lagring full"); } }, [recipes]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); } catch(e){} }, [mealPlan]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_planType', planType); } catch(e){} }, [planType]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); } catch(e){} }, [checkedListItems]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); } catch(e){} }, [isPlanLocked]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_planStartOffset', planStartOffset); } catch(e){} }, [planStartOffset]);
 
           // PWA Install Prompt
           useEffect(() => {
@@ -439,27 +438,31 @@
             const reader = new FileReader();
             reader.onload = (event) => {
               const img = new Image();
-              img.onload = () => {
+              img.onload = async () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width, height = img.height;
                 
-                // Högre kvalitet på bilden (upp till 1024px) eftersom vi nu har ett eget dokument per recept!
-                const MAX_DIM = 1024; 
+                // Max 600px. Denna storlek GARANTERAR att koden alltid ryms inom databasens 1 MB-gräns.
+                const MAX_DIM = 600; 
                 if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                 else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                 
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                 
-                // Ökat bildkvaliteten från 0.45 till 0.85 för fantastisk skärpa
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                // 65% kvalitet ger fortfarande en bra bild på mobil men filstorleken blir minimal
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
                 
                 const currentRecipe = recipes.find(r => r.id === targetId);
                 if (currentRecipe) {
                    const updatedRecipe = { ...currentRecipe, customImage: dataUrl };
                    setRecipes(prevRecipes => prevRecipes.map(r => r.id === targetId ? updatedRecipe : r));
-                   saveRecipeToDb(updatedRecipe); // Sparar nu direkt till sitt egna dokument!
-                   showToast("Din bild har sparats permanent!");
+                   
+                   // Vänta in svar från molnet
+                   const success = await saveRecipeToDb(updatedRecipe);
+                   if (success) {
+                      showToast("Din bild har sparats i molnet! ☁️");
+                   }
                 }
                 
                 uploadingRecipeIdRef.current = null;
@@ -766,7 +769,7 @@
                     // Vi komprimerar kamerans originalbild innan vi skickar den till AI:n, annars blir den för stor för API:et
                     const canvas = document.createElement('canvas');
                     let width = img.width, height = img.height;
-                    const MAX_DIM = 1024; 
+                    const MAX_DIM = 800; 
                     if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                     else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                     
