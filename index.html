@@ -153,13 +153,21 @@
         const normalizeName = (name) => {
           // Rensa text inuti parenteser (t.ex. "(jonas sås)") innan vi normaliserar
           let n = name.replace(/\s*\(.*?\)\s*/g, ' ').toLowerCase().trim();
+          n = n.replace(/\s+/g, ' '); // Ta bort extra mellanslag
+          
+          // Slå ihop alla vanliga stökigheter och pluralvarianter
+          if (n === 'gullök' || n === 'gula lökar' || n === 'gul lökar') return 'Gul lök';
+          if (n === 'rödlök' || n === 'röda lökar' || n === 'röd lökar') return 'Röd lök';
+          if (n === 'krossade tomater' || n === 'krossad tomat') return 'Krossade tomater';
+          if (n === 'passerade tomater' || n === 'passerad tomat') return 'Passerade tomater';
+          if (n === 'köttfärs' || n === 'nötfärs' || n === 'blandfärs') return 'Nötfärs/blandfärs';
+          if (n === 'matlagningsgrädde' || n === 'vispgrädde') return 'Grädde';
           
           const exactSynonyms = {
-            'creme fraiche': 'crème fraiche', 'crème fraîche': 'crème fraiche', 'krossade tomater': 'krossad tomat',
-            'gullök': 'gul lök', 'gula lökar': 'gul lök', 'rödlök': 'röd lök', 'röda lökar': 'röd lök',
-            'köttfärs': 'nötfärs/blandfärs', 'nötfärs': 'nötfärs/blandfärs', 'blandfärs': 'nötfärs/blandfärs'
+            'creme fraiche': 'crème fraiche', 'crème fraîche': 'crème fraiche'
           };
           if (exactSynonyms[n]) return exactSynonyms[n];
+          
           n = n.replace(/vitlöks\s*klyft(a|or)/g, 'vitlöksklyfta').replace(/kyckling(bröst)?\s*filé(er)?/g, 'kycklingfilé');
           const reps = { 'klyftor$':'klyfta', 'lökar$':'lök', 'tomater$':'tomat', 'morötter$':'morot', 'potatisar$':'potatis', 'filéer$':'filé', 'förpackningar$':'förp', 'burkar$':'burk', 'skivor$':'skiva', 'bitar$':'bit', 'påsar$':'påse', 'krukor$':'kruka', 'halvor$':'halva', '^gula ':'gul ', '^röda ':'röd ', '^gröna ':'grön ', '^färska ':'färsk ' };
           for(let [k,v] of Object.entries(reps)) n = n.replace(new RegExp(k, 'i'), v);
@@ -434,13 +442,17 @@
               img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width, height = img.height;
-                const MAX_DIM = 400; 
+                
+                // Högre kvalitet på bilden (upp till 1024px) eftersom vi nu har ett eget dokument per recept!
+                const MAX_DIM = 1024; 
                 if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                 else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                 
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
+                
+                // Ökat bildkvaliteten från 0.45 till 0.85 för fantastisk skärpa
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 
                 const currentRecipe = recipes.find(r => r.id === targetId);
                 if (currentRecipe) {
@@ -748,20 +760,41 @@
               setIsScanning(true); showToast("Tittar på bilden...");
               try {
                 const reader = new FileReader();
-                reader.onloadend = async () => {
-                  try {
-                    const data = await callGemini("Extrahera receptet från denna bild.", reader.result.split(',')[1], file.type, recipeSchema);
-                    setFormData(prev => ({ ...prev, name: data.name || prev.name, protein: data.protein || prev.protein, collection: data.collection || prev.collection, time: data.time || prev.time, ingredients: data.ingredients?.length ? data.ingredients : prev.ingredients, instructions: data.instructions || prev.instructions }));
-                    showToast("Ifyllt från bilden!");
-                  } catch (err) { 
-                    console.error("Camera Scan Error:", err);
-                    if (err.message.includes("API key not valid") || err.message.includes("API_KEY_INVALID")) {
-                        setShowApiModal(true);
-                        showToast("API-nyckeln är ogiltig!");
-                    } else {
-                        showToast("Kunde inte tolka bilden: " + err.message.substring(0, 30)); 
-                    }
-                  } finally { setIsScanning(false); if (cameraInputRef.current) cameraInputRef.current.value = ''; }
+                reader.onload = (e) => {
+                  const img = new Image();
+                  img.onload = async () => {
+                    // Vi komprimerar kamerans originalbild innan vi skickar den till AI:n, annars blir den för stor för API:et
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const MAX_DIM = 1024; 
+                    if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
+                    else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
+                    
+                    canvas.width = width; canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+                    try {
+                      const prompt = "Extrahera receptet från denna bild. Fyll i alla fält noggrant (namn, protein, tid, ingredienser med mängd och enhet, samt steg-för-steg instruktioner). Om något saknas, gör en rimlig gissning utifrån rätten.";
+                      const data = await callGemini(prompt, base64Data, "image/jpeg", recipeSchema);
+                      
+                      if (data && data.name) {
+                          setFormData(prev => ({ ...prev, name: data.name || prev.name, protein: data.protein || prev.protein, collection: data.collection || prev.collection, time: data.time || prev.time, ingredients: data.ingredients?.length ? data.ingredients : prev.ingredients, instructions: data.instructions || prev.instructions }));
+                          showToast("Ifyllt från bilden!");
+                      } else {
+                          throw new Error("Tomt svar från AI");
+                      }
+                    } catch (err) { 
+                      console.error("Camera Scan Error:", err);
+                      if (err.message && (err.message.includes("API key not valid") || err.message.includes("API_KEY_INVALID"))) {
+                          setShowApiModal(true);
+                          showToast("API-nyckeln är ogiltig!");
+                      } else {
+                          showToast("Kunde inte tolka bilden ordentligt."); 
+                      }
+                    } finally { setIsScanning(false); if (cameraInputRef.current) cameraInputRef.current.value = ''; }
+                  };
+                  img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
               } catch (err) { setIsScanning(false); }
