@@ -71,8 +71,6 @@
         // =========================================================================
         const apiKey = ""; // LÄMNA DENNA TOM! Appen frågar efter din Gemini-nyckel (via 🔑-ikonen).
 
-        // För GitHub/egen hosting: Byt ut till din egen gratis Firebase config OM du vill ha 
-        // molnsynk mellan flera enheter. Lämnas den så här körs appen smidigt lokalt istället.
         const myFirebaseConfig = {
   apiKey: "AIzaSyANEkApp6RLf2dXSiIu_cE5wyDp1dSZuRk",
   authDomain: "kockbot-f0e5f.firebaseapp.com",
@@ -89,7 +87,6 @@
 
         try {
           const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-          // Om nyckeln inte är ändrad, strunta i Firebase och kör lokalt för att slippa felmeddelanden
           const isDummyKey = myFirebaseConfig && myFirebaseConfig.apiKey && myFirebaseConfig.apiKey.includes("DIN_EGEN");
           const finalConfig = (myFirebaseConfig && myFirebaseConfig.apiKey && !isDummyKey) ? myFirebaseConfig : (configStr ? JSON.parse(configStr) : null);
           
@@ -105,9 +102,18 @@
         // =========================================================================
         // KONSTANTER & HJÄLPFUNKTIONER
         // =========================================================================
-        const CATEGORY_CYCLE = ['kött', 'veg', 'fisk', 'kyckling', 'veg', 'kött', 'fisk'];
         const DAYS = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag', 'Söndag'];
         const BOOK_COLLECTIONS = ['Alla', 'Spaghetti- & pastarätter', 'Potatisrätter', 'Risrätter', 'Soppor', 'Övriga vardagsrätter', 'Helgmat'];
+
+        const shuffleArray = (array) => {
+          let currentIndex = array.length, randomIndex;
+          while (currentIndex !== 0) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+          }
+          return array;
+        };
 
         const getISOWeekNumber = (date) => {
           const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -151,11 +157,9 @@
         };
 
         const normalizeName = (name) => {
-          // Rensa text inuti parenteser (t.ex. "(jonas sås)") innan vi normaliserar
           let n = name.replace(/\s*\(.*?\)\s*/g, ' ').toLowerCase().trim();
-          n = n.replace(/\s+/g, ' '); // Ta bort extra mellanslag
+          n = n.replace(/\s+/g, ' '); 
           
-          // Slå ihop alla vanliga stökigheter och pluralvarianter
           if (n === 'gullök' || n === 'gula lökar' || n === 'gul lökar') return 'Gul lök';
           if (n === 'rödlök' || n === 'röda lökar' || n === 'röd lökar') return 'Röd lök';
           if (n === 'krossade tomater' || n === 'krossad tomat') return 'Krossade tomater';
@@ -219,8 +223,6 @@
           return <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm border ${colors[pStr] || colors['veg']}`}>{protein || 'VEG'}</span>;
         };
 
-        const DEFAULT_RECIPES = [];
-
         // =========================================================================
         // HUVUDKOMPONENT
         // =========================================================================
@@ -259,7 +261,6 @@
           const [selectedCollection, setSelectedCollection] = useState('Alla');
           const [selectedRecipeId, setSelectedRecipeId] = useState(null);
           
-          // Nya states för att hantera redigering
           const [showAddModal, setShowAddModal] = useState(false);
           const [editingRecipeId, setEditingRecipeId] = useState(null);
 
@@ -267,7 +268,6 @@
           
           const fileInputRef = useRef(null);
           const imageUploadRef = useRef(null);
-          // Håller reda på vilket recept som får bilden
           const uploadingRecipeIdRef = useRef(null);
 
           const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -311,18 +311,15 @@
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
-            // 1. Lyssna på Inställningar & Matsedel
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId);
             const unsubSettings = onSnapshot(docRef, (docSnap) => {
               if (docSnap.exists()) {
                 const data = docSnap.data();
                 
-                // MIGRATION: Om det finns gamla recept i "klumpen", flytta dem till den nya mappstrukturen
                 if (data.recipes && data.recipes.length > 0) {
                   data.recipes.forEach(recipe => {
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipe.id), recipe).catch(() => {});
                   });
-                  // Töm den gamla arrayen så att utrymmet frigörs permanent
                   setDoc(docRef, { recipes: [] }, { merge: true }).catch(() => {});
                 }
 
@@ -332,46 +329,27 @@
                 if (data.isPlanLocked !== undefined) setIsPlanLocked(data.isPlanLocked);
                 if (data.planStartOffset !== undefined) setPlanStartOffset(data.planStartOffset);
               } else {
-                 // Initiera nytt hushåll i molnet med nuvarande lokala data
                  setDoc(docRef, { mealPlan, planType, checkedListItems, isPlanLocked, planStartOffset }, { merge: true }).catch(console.error);
-                 if (recipes.length > 0) {
-                     recipes.forEach(r => saveRecipeToDb(r));
-                 }
+                 if (recipes.length > 0) { recipes.forEach(r => saveRecipeToDb(r)); }
               }
               setIsDbLoaded(true);
             }, () => setIsDbLoaded(true));
 
-            // 2. Lyssna på det nya Recept-biblioteket (obegränsad storlek!)
             const recipesRef = collection(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes');
             const unsubRecipes = onSnapshot(recipesRef, (snapshot) => {
               const loadedRecipes = [];
-              snapshot.forEach((doc) => {
-                loadedRecipes.push({ ...doc.data(), id: doc.id });
-              });
-              
-              // Endast uppdatera recept om det faktiskt finns några nedladdade eller om det inte är första laddningen lokalt
-              if(loadedRecipes.length > 0 || !snapshot.metadata.fromCache) {
-                 setRecipes(loadedRecipes);
-              }
+              snapshot.forEach((doc) => { loadedRecipes.push({ ...doc.data(), id: doc.id }); });
+              if(loadedRecipes.length > 0 || !snapshot.metadata.fromCache) { setRecipes(loadedRecipes); }
             }, (err) => { console.error("Recept sync fel:", err); });
 
-            return () => {
-              unsubSettings();
-              unsubRecipes();
-            };
+            return () => { unsubSettings(); unsubRecipes(); };
           }, [user, householdId]);
 
-          // Ny funktion för att enbart spara inställningar
           const updateSettingsInDb = async (updates) => {
             if (!user || !db || !householdId) return;
-            try { 
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); 
-            } catch (err) {
-              console.error("Firebase spara fel:", err);
-            }
+            try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId), updates, { merge: true }); } catch (err) {}
           };
 
-          // Ny funktion för att spara/skriva över ETT recept åt gången (Ingen 1 MB gräns längre!)
           const saveRecipeToDb = async (recipe) => {
             if (!user || !db || !householdId) return false;
             try {
@@ -384,17 +362,12 @@
             }
           };
 
-          // Ny funktion för att ta bort ETT recept ur molnet
           const deleteRecipeFromDb = async (recipeId) => {
             if (!user || !db || !householdId) return;
-            try {
-              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipeId));
-            } catch (err) {
-              console.error("Fel vid radering av recept:", err);
-            }
+            try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipeId)); } catch (err) {}
           };
 
-          // Spara lokalt med felhantering för att förhindra "Vit skärm" när telefonens minne är fullt (QuotaExceeded)
+          // Spara lokalt med felhantering för QuotaExceeded
           useEffect(() => { try { localStorage.setItem('smartMatsedel_householdId', householdId); } catch(e){} }, [householdId]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); } catch(e){ console.warn("Lokal lagring full"); } }, [recipes]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); } catch(e){} }, [mealPlan]);
@@ -441,28 +414,20 @@
               img.onload = async () => {
                 const canvas = document.createElement('canvas');
                 let width = img.width, height = img.height;
-                
-                // Max 600px. Denna storlek GARANTERAR att koden alltid ryms inom databasens 1 MB-gräns.
                 const MAX_DIM = 600; 
                 if (width > height) { if (width > MAX_DIM) { height = Math.round(height * (MAX_DIM / width)); width = MAX_DIM; } } 
                 else { if (height > MAX_DIM) { width = Math.round(width * (MAX_DIM / height)); height = MAX_DIM; } }
                 
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                
-                // 65% kvalitet ger fortfarande en bra bild på mobil men filstorleken blir minimal
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
                 
                 const currentRecipe = recipes.find(r => r.id === targetId);
                 if (currentRecipe) {
                    const updatedRecipe = { ...currentRecipe, customImage: dataUrl };
                    setRecipes(prevRecipes => prevRecipes.map(r => r.id === targetId ? updatedRecipe : r));
-                   
-                   // Vänta in svar från molnet
                    const success = await saveRecipeToDb(updatedRecipe);
-                   if (success) {
-                      showToast("Din bild har sparats i molnet! ☁️");
-                   }
+                   if (success) showToast("Din bild har sparats i molnet! ☁️");
                 }
                 
                 uploadingRecipeIdRef.current = null;
@@ -473,21 +438,61 @@
             reader.readAsDataURL(file);
           };
 
+          // NY SLUMPNINGSLOGIK
           const generatePlan = (type) => {
             if (recipes.length === 0) { showToast("Lägg till minst ett recept först."); setActiveTab('recipes'); return; }
-            const numDays = type === 'week' ? 7 : type === '2weeks' ? 14 : type === '3weeks' ? 21 : 28;
+            
+            const numWeeks = type === 'week' ? 1 : type === '2weeks' ? 2 : type === '3weeks' ? 3 : 4;
             const newPlan = [];
-            for (let i = 0; i < numDays; i++) {
-              const targetProtein = CATEGORY_CYCLE[i % CATEGORY_CYCLE.length]; 
-              let candidates = recipes.filter(r => r.protein === targetProtein);
-              if (candidates.length === 0) candidates = recipes;
-              
-              const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
-              const recipeToSave = { ...selectedRecipe };
-              delete recipeToSave.customImage; 
-              
-              newPlan.push({ dayIndex: i, dayName: DAYS[i % 7], weekNumber: Math.floor(i / 7) + 1, recipe: recipeToSave });
+            
+            for (let w = 0; w < numWeeks; w++) {
+                // Skapa en struktur för de 4 första dagarna i veckan: Exakt 1 fisk, exakt 1 veg, 2 kött/kyckling
+                const weekdayProteins = ['fisk', 'veg'];
+                weekdayProteins.push(Math.random() > 0.5 ? 'kött' : 'kyckling');
+                weekdayProteins.push(Math.random() > 0.5 ? 'kött' : 'kyckling');
+                const shuffledWeekdays = shuffleArray([...weekdayProteins]); // Blanda runt dem!
+                
+                for (let d = 0; d < 7; d++) {
+                    const globalDayIndex = (w * 7) + d;
+                    let targetProtein = '';
+                    let targetCollection = '';
+                    
+                    if (d < 4) {
+                        // Måndag (0) till Torsdag (3) tar från vår förutbestämda blandade hög
+                        targetProtein = shuffledWeekdays[d];
+                    } else if (d === 4 || d === 5) {
+                        // Fredag (4) och Lördag (5) är alltid HELGMAT
+                        targetCollection = 'Helgmat';
+                    } else {
+                        // Söndag (6) är en klassisk kött/kyckling-dag
+                        targetProtein = Math.random() > 0.5 ? 'kött' : 'kyckling';
+                    }
+
+                    // Hitta recept som matchar våra nya hårda regler
+                    let candidates = recipes;
+                    if (targetCollection) {
+                        candidates = recipes.filter(r => r.collection === targetCollection);
+                        if (candidates.length === 0) candidates = recipes; // Fallback om man inte lagt in någon helgmat än
+                    } else if (targetProtein) {
+                        candidates = recipes.filter(r => r.protein.toLowerCase() === targetProtein);
+                        if (candidates.length === 0) candidates = recipes; // Fallback om kategorin är tom
+                    }
+                    
+                    const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
+                    const recipeToSave = { ...selectedRecipe };
+                    delete recipeToSave.customImage; 
+                    
+                    newPlan.push({ 
+                        dayIndex: globalDayIndex, 
+                        targetProteinMarker: targetProtein, 
+                        targetCollectionMarker: targetCollection, // Spara markör så appen vet att detta är Helgmat vid framtida byten
+                        dayName: DAYS[d], 
+                        weekNumber: Math.floor(globalDayIndex / 7) + 1, 
+                        recipe: recipeToSave 
+                    });
+                }
             }
+
             setMealPlan(newPlan); setPlanType(type); setCheckedListItems({}); setIsPlanLocked(false);
             updateSettingsInDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
           };
@@ -500,9 +505,31 @@
           const swapDayRecipe = (index) => {
             if (recipes.length === 0) return;
             const currentPlan = [...mealPlan];
-            const targetProtein = CATEGORY_CYCLE[currentPlan[index].dayIndex % CATEGORY_CYCLE.length];
-            let candidates = recipes.filter(r => r.protein === targetProtein && r.id !== currentPlan[index].recipe?.id);
-            if (candidates.length === 0) candidates = recipes.filter(r => r.id !== currentPlan[index].recipe?.id);
+            const day = currentPlan[index];
+            
+            // Kolla vilken regel som gällde för den här dagen
+            let targetProtein = day.targetProteinMarker;
+            let targetCollection = day.targetCollectionMarker;
+            
+            // Om matsedeln är gammal och saknar markörer från förr, gissa baserat på veckodagen
+            if (!targetProtein && !targetCollection) {
+                const d = day.dayIndex % 7;
+                if (d === 4 || d === 5) targetCollection = 'Helgmat';
+                else if (d === 6) targetProtein = Math.random() > 0.5 ? 'kött' : 'kyckling';
+                else targetProtein = day.recipe?.protein?.toLowerCase() || 'kött';
+            }
+
+            // Leta fram ersättare som följer samma regler, exkludera det nuvarande receptet
+            let candidates = recipes;
+            if (targetCollection) {
+                candidates = recipes.filter(r => r.collection === targetCollection && r.id !== day.recipe?.id);
+                if (candidates.length === 0) candidates = recipes.filter(r => r.collection === targetCollection);
+                if (candidates.length === 0) candidates = recipes.filter(r => r.id !== day.recipe?.id);
+            } else if (targetProtein) {
+                candidates = recipes.filter(r => r.protein.toLowerCase() === targetProtein && r.id !== day.recipe?.id);
+                if (candidates.length === 0) candidates = recipes.filter(r => r.protein.toLowerCase() === targetProtein);
+                if (candidates.length === 0) candidates = recipes.filter(r => r.id !== day.recipe?.id);
+            }
             if (candidates.length === 0) candidates = recipes;
             
             const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
@@ -510,6 +537,9 @@
             delete recipeToSave.customImage;
             
             currentPlan[index].recipe = recipeToSave;
+            currentPlan[index].targetProteinMarker = targetProtein; 
+            currentPlan[index].targetCollectionMarker = targetCollection; 
+            
             setMealPlan(currentPlan); updateSettingsInDb({ mealPlan: currentPlan });
           };
 
@@ -545,7 +575,6 @@
           const callGemini = async (promptText, base64Data, mimeType, responseSchema) => {
             const customKey = localStorage.getItem('smartMatsedel_apiKey');
             const activeKey = customKey || apiKey;
-            
             const modelName = customKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
             
@@ -635,7 +664,6 @@
                 if (!ing?.name) return;
                 const normName = normalizeName(ing.name); 
                 
-                // Filtrera bort vatten, salt, peppar och tomma namn (om det bara var en parentes)
                 const skipList = ['vatten', 'salt', 'peppar', 'svartpeppar', 'vitpeppar', 'flingsalt', 'salt och peppar', 'salt & peppar'];
                 if (!normName || skipList.includes(normName.toLowerCase())) return; 
 
@@ -766,7 +794,6 @@
                 reader.onload = (e) => {
                   const img = new Image();
                   img.onload = async () => {
-                    // Vi komprimerar kamerans originalbild innan vi skickar den till AI:n, annars blir den för stor för API:et
                     const canvas = document.createElement('canvas');
                     let width = img.width, height = img.height;
                     const MAX_DIM = 800; 
@@ -848,10 +875,8 @@
             if (!recipe) return null;
             return (
               <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={onClose}>
-                {/* LÄS IN: relative och overflow-hidden håller menyraden på plats */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg my-8 flex flex-col border border-slate-200/60 dark:border-slate-700 relative overflow-hidden" style={{ maxHeight: 'calc(100vh - 4rem)' }} onClick={e => e.stopPropagation()}>
                   
-                  {/* Uppdaterad menyrad som nu håller sig exakt inom rutans väggar (left-0 right-0) */}
                   <div className="p-4 border-b border-slate-100/50 dark:border-slate-700/50 flex justify-between items-center bg-white/90 dark:bg-slate-800/90 backdrop-blur-md absolute top-0 left-0 right-0 z-20">
                     <button onClick={() => { deleteRecipe(recipe.id); onClose(); }} className="text-red-500 bg-red-50 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-slate-600 rounded-full p-2.5 shadow-sm border border-red-100 dark:border-slate-600 transition-colors flex items-center gap-1.5 px-3" title="Ta bort recept">
                       <Trash2 size={18} /> <span className="text-xs font-bold hidden sm:inline">Radera</span>
@@ -866,7 +891,6 @@
                     </div>
                   </div>
                   
-                  {/* pt-24 kompenserar för att den flytande menyn nu är i toppen */}
                   <div className="p-6 pt-24 overflow-y-auto flex-1">
                     <div className="mb-6 relative">
                       <button onClick={e => triggerImageUpload(e, recipe.id)} className="absolute top-0 right-0 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-500 rounded-full shadow-sm border z-30" title="Lägg till egen bild"><ImagePlus size={20} /></button>
@@ -1067,8 +1091,6 @@
                         {filteredRecipes.map((recipe, index) => (
                             <div key={recipe.id} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-[2rem] shadow-lg border flex flex-col hover:shadow-2xl hover:-translate-y-1.5 duration-300 group cursor-pointer relative overflow-hidden animate-in fade-in" style={{animationDelay: `${(index % 10) * 50}ms`}} onClick={() => setSelectedRecipeId(recipe.id)}>
                               <div className="h-40 w-full bg-slate-100 dark:bg-slate-700 relative overflow-hidden flex-shrink-0">
-                                  <button onClick={(e) => { e.stopPropagation(); deleteRecipe(recipe.id); }} className="absolute top-4 right-4 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md text-red-400 rounded-full opacity-0 group-hover:opacity-100 shadow-sm active:scale-95 z-10"><Trash2 size={18} /></button>
-                                  <button onClick={(e) => triggerImageUpload(e, recipe.id)} className="absolute top-4 left-4 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md text-slate-400 rounded-full opacity-0 group-hover:opacity-100 shadow-sm active:scale-95 z-10"><ImagePlus size={18} /></button>
                                   <img src={getRecipeImage(recipe)} alt={recipe.name} className="w-full h-full object-cover group-hover:scale-105 duration-700" onError={(e) => { e.target.onerror=null; e.target.src=getFallbackImage(recipe.id); }} />
                                   <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white/90 dark:from-slate-800/90 to-transparent"></div>
                               </div>
