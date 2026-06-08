@@ -60,7 +60,7 @@
         import { 
           Calendar, ShoppingCart, BookOpen, RefreshCw, Info, 
           X, CalendarDays, Plus, Upload, Trash2, Save, Users,
-          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock, ChevronDown, ImagePlus, Sun, Moon, Key, Edit
+          Loader2, Copy, Check, Utensils, ExternalLink, Filter, Camera, Sparkles, Download, Lock, Unlock, ChevronDown, ImagePlus, Sun, Moon, Key, Edit, Search, CalendarPlus
         } from 'lucide-react';
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
@@ -69,17 +69,17 @@
         // =========================================================================
         // API OCH FIREBASE CONFIG
         // =========================================================================
-        const apiKey = ""; // LÄMNA DENNA TOM! Appen frågar efter din Gemini-nyckel (via 🔑-ikonen).
+        const apiKey = ""; 
 
         const myFirebaseConfig = {
-  apiKey: "AIzaSyANEkApp6RLf2dXSiIu_cE5wyDp1dSZuRk",
-  authDomain: "kockbot-f0e5f.firebaseapp.com",
-  projectId: "kockbot-f0e5f",
-  storageBucket: "kockbot-f0e5f.firebasestorage.app",
-  messagingSenderId: "132836094378",
-  appId: "1:132836094378:web:98106b8982f6c47f61bbd3",
-  measurementId: "G-DDW0GD700Z"
-}; 
+          apiKey: "AIzaSyANEkApp6RLf2dXSiIu_cE5wyDp1dSZuRk",
+          authDomain: "kockbot-f0e5f.firebaseapp.com",
+          projectId: "kockbot-f0e5f",
+          storageBucket: "kockbot-f0e5f.firebasestorage.app",
+          messagingSenderId: "132836094378",
+          appId: "1:132836094378:web:98106b8982f6c47f61bbd3",
+          measurementId: "G-DDW0GD700Z"
+        }; 
 
         let auth = null;
         let db = null;
@@ -258,6 +258,15 @@
             try { return JSON.parse(localStorage.getItem('smartMatsedel_checkedListItems')) || {}; } catch(e) { return {}; }
           });
 
+          // Nytt state för att låsa specifika veckor
+          const [lockedWeeks, setLockedWeeks] = useState(() => {
+            try { return JSON.parse(localStorage.getItem('smartMatsedel_lockedWeeks')) || {}; } catch(e) { return {}; }
+          });
+
+          // Nya states för sök & manuell planering
+          const [recipeSearchQuery, setRecipeSearchQuery] = useState('');
+          const [selectingForDayIndex, setSelectingForDayIndex] = useState(null);
+
           const [selectedCollection, setSelectedCollection] = useState('Alla');
           const [selectedRecipeId, setSelectedRecipeId] = useState(null);
           
@@ -307,7 +316,7 @@
             return onAuthStateChanged(auth, setUser);
           }, []);
 
-          // Databas Sync (Optimerad med separata dokument för Recept)
+          // Databas Sync
           useEffect(() => {
             if (!user || !db || !householdId) return;
             
@@ -315,21 +324,20 @@
             const unsubSettings = onSnapshot(docRef, (docSnap) => {
               if (docSnap.exists()) {
                 const data = docSnap.data();
-                
                 if (data.recipes && data.recipes.length > 0) {
                   data.recipes.forEach(recipe => {
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipe.id), recipe).catch(() => {});
                   });
                   setDoc(docRef, { recipes: [] }, { merge: true }).catch(() => {});
                 }
-
                 if (data.mealPlan) setMealPlan(data.mealPlan);
                 if (data.planType) setPlanType(data.planType);
                 if (data.checkedListItems) setCheckedListItems(data.checkedListItems);
                 if (data.isPlanLocked !== undefined) setIsPlanLocked(data.isPlanLocked);
                 if (data.planStartOffset !== undefined) setPlanStartOffset(data.planStartOffset);
+                if (data.lockedWeeks) setLockedWeeks(data.lockedWeeks); // <-- NYTT
               } else {
-                 setDoc(docRef, { mealPlan, planType, checkedListItems, isPlanLocked, planStartOffset }, { merge: true }).catch(console.error);
+                 setDoc(docRef, { mealPlan, planType, checkedListItems, isPlanLocked, planStartOffset, lockedWeeks }, { merge: true }).catch(console.error); // <-- UPPDATERAD
                  if (recipes.length > 0) { recipes.forEach(r => saveRecipeToDb(r)); }
               }
               setIsDbLoaded(true);
@@ -367,7 +375,7 @@
             try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'households', householdId, 'recipes', recipeId)); } catch (err) {}
           };
 
-          // Spara lokalt med felhantering för QuotaExceeded
+          // Spara lokalt
           useEffect(() => { try { localStorage.setItem('smartMatsedel_householdId', householdId); } catch(e){} }, [householdId]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_recipes', JSON.stringify(recipes)); } catch(e){ console.warn("Lokal lagring full"); } }, [recipes]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_mealPlan', JSON.stringify(mealPlan)); } catch(e){} }, [mealPlan]);
@@ -375,6 +383,7 @@
           useEffect(() => { try { localStorage.setItem('smartMatsedel_checkedListItems', JSON.stringify(checkedListItems)); } catch(e){} }, [checkedListItems]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_planLocked', isPlanLocked); } catch(e){} }, [isPlanLocked]);
           useEffect(() => { try { localStorage.setItem('smartMatsedel_planStartOffset', planStartOffset); } catch(e){} }, [planStartOffset]);
+          useEffect(() => { try { localStorage.setItem('smartMatsedel_lockedWeeks', JSON.stringify(lockedWeeks)); } catch(e){} }, [lockedWeeks]); // <-- NYTT
 
           // PWA Install Prompt
           useEffect(() => {
@@ -438,7 +447,6 @@
             reader.readAsDataURL(file);
           };
 
-          // NY SLUMPNINGSLOGIK
           const generatePlan = (type) => {
             if (recipes.length === 0) { showToast("Lägg till minst ett recept först."); setActiveTab('recipes'); return; }
             
@@ -446,36 +454,45 @@
             const newPlan = [];
             
             for (let w = 0; w < numWeeks; w++) {
-                // Skapa en struktur för de 4 första dagarna i veckan: Exakt 1 fisk, exakt 1 veg, 2 kött/kyckling
+                // Ta fram det faktiska veckonumret för denna vecka
+                const targetDate = new Date();
+                targetDate.setDate(targetDate.getDate() + ((w + planStartOffset) * 7));
+                const actualWeekNum = getISOWeekNumber(targetDate);
+                const isWeekLocked = lockedWeeks[actualWeekNum]; // Kolla om just denna vecka är låst
+
                 const weekdayProteins = ['fisk', 'veg'];
                 weekdayProteins.push(Math.random() > 0.5 ? 'kött' : 'kyckling');
                 weekdayProteins.push(Math.random() > 0.5 ? 'kött' : 'kyckling');
-                const shuffledWeekdays = shuffleArray([...weekdayProteins]); // Blanda runt dem!
+                const shuffledWeekdays = shuffleArray([...weekdayProteins]);
                 
                 for (let d = 0; d < 7; d++) {
                     const globalDayIndex = (w * 7) + d;
+                    
+                    // Om veckan är låst OCH dagen redan finns i nuvarande plan, behåll den oförändrad!
+                    const existingDay = mealPlan.find(m => m.weekNumber === actualWeekNum && m.dayName === DAYS[d]);
+                    if (isWeekLocked && existingDay) {
+                        newPlan.push({ ...existingDay, dayIndex: globalDayIndex });
+                        continue;
+                    }
+
                     let targetProtein = '';
                     let targetCollection = '';
                     
                     if (d < 4) {
-                        // Måndag (0) till Torsdag (3) tar från vår förutbestämda blandade hög
                         targetProtein = shuffledWeekdays[d];
                     } else if (d === 4 || d === 5) {
-                        // Fredag (4) och Lördag (5) är alltid HELGMAT
                         targetCollection = 'Helgmat';
                     } else {
-                        // Söndag (6) är en klassisk kött/kyckling-dag
                         targetProtein = Math.random() > 0.5 ? 'kött' : 'kyckling';
                     }
 
-                    // Hitta recept som matchar våra nya hårda regler
                     let candidates = recipes;
                     if (targetCollection) {
                         candidates = recipes.filter(r => r.collection === targetCollection);
-                        if (candidates.length === 0) candidates = recipes; // Fallback om man inte lagt in någon helgmat än
+                        if (candidates.length === 0) candidates = recipes; 
                     } else if (targetProtein) {
                         candidates = recipes.filter(r => r.protein.toLowerCase() === targetProtein);
-                        if (candidates.length === 0) candidates = recipes; // Fallback om kategorin är tom
+                        if (candidates.length === 0) candidates = recipes; 
                     }
                     
                     const selectedRecipe = candidates[Math.floor(Math.random() * candidates.length)];
@@ -485,7 +502,7 @@
                     newPlan.push({ 
                         dayIndex: globalDayIndex, 
                         targetProteinMarker: targetProtein, 
-                        targetCollectionMarker: targetCollection, // Spara markör så appen vet att detta är Helgmat vid framtida byten
+                        targetCollectionMarker: targetCollection,
                         dayName: DAYS[d], 
                         weekNumber: Math.floor(globalDayIndex / 7) + 1, 
                         recipe: recipeToSave 
@@ -497,9 +514,26 @@
             updateSettingsInDb({ mealPlan: newPlan, planType: type, checkedListItems: {}, isPlanLocked: false });
           };
 
+          const toggleWeekLock = (weekNum) => {
+            const newLockedWeeks = { ...lockedWeeks, [weekNum]: !lockedWeeks[weekNum] };
+            setLockedWeeks(newLockedWeeks);
+            updateSettingsInDb({ lockedWeeks: newLockedWeeks });
+            showToast(newLockedWeeks[weekNum] ? `Vecka ${weekNum} är nu låst! 🔒` : `Vecka ${weekNum} är upplåst! 🔓`);
+          };
+
           const toggleLock = () => {
-            setIsPlanLocked(!isPlanLocked); updateSettingsInDb({ isPlanLocked: !isPlanLocked });
-            showToast(!isPlanLocked ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
+            const newLockState = !isPlanLocked;
+            setIsPlanLocked(newLockState); 
+            
+            // Om vi låser upp matsedeln, nollställ veckorna så vi utgår från "Denna vecka" igen
+            if (!newLockState) {
+                setPlanStartOffset(0);
+                updateSettingsInDb({ isPlanLocked: newLockState, planStartOffset: 0 });
+            } else {
+                updateSettingsInDb({ isPlanLocked: newLockState });
+            }
+            
+            showToast(newLockState ? "Matsedeln är nu låst för hela hushållet! 🔒" : "Matsedeln är nu upplåst! 🔓");
           };
 
           const swapDayRecipe = (index) => {
@@ -507,11 +541,9 @@
             const currentPlan = [...mealPlan];
             const day = currentPlan[index];
             
-            // Kolla vilken regel som gällde för den här dagen
             let targetProtein = day.targetProteinMarker;
             let targetCollection = day.targetCollectionMarker;
             
-            // Om matsedeln är gammal och saknar markörer från förr, gissa baserat på veckodagen
             if (!targetProtein && !targetCollection) {
                 const d = day.dayIndex % 7;
                 if (d === 4 || d === 5) targetCollection = 'Helgmat';
@@ -519,7 +551,6 @@
                 else targetProtein = day.recipe?.protein?.toLowerCase() || 'kött';
             }
 
-            // Leta fram ersättare som följer samma regler, exkludera det nuvarande receptet
             let candidates = recipes;
             if (targetCollection) {
                 candidates = recipes.filter(r => r.collection === targetCollection && r.id !== day.recipe?.id);
@@ -678,9 +709,18 @@
             return Object.entries(grouped).filter(([_, items]) => items.length > 0);
           }, [mealPlan]);
 
+          // Filtrering i Receptboken: Kategori OCH text-sökning
           const filteredRecipes = useMemo(() => {
-            return selectedCollection === 'Alla' ? recipes : recipes.filter(r => r.collection === selectedCollection);
-          }, [recipes, selectedCollection]);
+            let result = selectedCollection === 'Alla' ? recipes : recipes.filter(r => r.collection === selectedCollection);
+            if (recipeSearchQuery.trim()) {
+                const query = recipeSearchQuery.toLowerCase();
+                result = result.filter(r => 
+                    r.name.toLowerCase().includes(query) || 
+                    r.ingredients?.some(i => i.name.toLowerCase().includes(query))
+                );
+            }
+            return result;
+          }, [recipes, selectedCollection, recipeSearchQuery]);
 
           const handleCopyList = () => {
             if (shoppingList.length === 0) {
@@ -749,6 +789,74 @@
                   </p>
                   <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)} placeholder="AIzaSy..." className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none dark:text-slate-100 mb-4 text-sm font-mono shadow-inner" />
                   <button onClick={() => { localStorage.setItem('smartMatsedel_apiKey', keyInput.trim()); setShowApiModal(false); showToast("Nyckel sparad i webbläsaren!"); }} className="w-full px-4 py-3 bg-[#526e35] dark:bg-[#6a8a47] hover:bg-[#3d5226] text-white rounded-xl font-bold active:scale-95 shadow-md">Spara Nyckel</button>
+                </div>
+              </div>
+            );
+          };
+
+          // MODAL FÖR MANUELLT VAL AV RÄTT TILL EN TOM DAG I MATSEDELN
+          const DayRecipePickerModal = () => {
+            const [pickerSearch, setPickerSearch] = useState('');
+            if (selectingForDayIndex === null) return null;
+            
+            const day = mealPlan[selectingForDayIndex];
+            const availableRecipes = recipes.filter(r => 
+              r.name.toLowerCase().includes(pickerSearch.toLowerCase()) || 
+              r.ingredients?.some(i => i.name.toLowerCase().includes(pickerSearch.toLowerCase()))
+            );
+
+            const handleSelect = (recipe) => {
+              const currentPlan = [...mealPlan];
+              const recipeToSave = { ...recipe };
+              delete recipeToSave.customImage;
+              
+              currentPlan[selectingForDayIndex].recipe = recipeToSave;
+              // Rensa gamla regler så att den tar över rättens kategori
+              currentPlan[selectingForDayIndex].targetProteinMarker = recipe.protein.toLowerCase();
+              currentPlan[selectingForDayIndex].targetCollectionMarker = recipe.collection;
+              
+              setMealPlan(currentPlan);
+              updateSettingsInDb({ mealPlan: currentPlan });
+              setSelectingForDayIndex(null);
+              showToast(`Tillagd på ${day.dayName}!`);
+            };
+
+            return (
+              <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setSelectingForDayIndex(null)}>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md my-8 flex flex-col border border-slate-200/60 dark:border-slate-700 max-h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">Välj rätt till {day?.dayName}</h2>
+                    <button onClick={() => setSelectingForDayIndex(null)} className="text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full active:scale-95">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        autoFocus
+                        placeholder="Sök recept..." 
+                        value={pickerSearch} 
+                        onChange={e => setPickerSearch(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-slate-100 shadow-sm focus:ring-2 focus:ring-[#6a8a47]" 
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 bg-slate-50 dark:bg-slate-900/20">
+                    {availableRecipes.length === 0 ? (
+                      <div className="text-center py-10 text-slate-500 dark:text-slate-400 font-medium">Inga recept hittades.</div>
+                    ) : (
+                      <div className="space-y-1.5 p-2">
+                        {availableRecipes.map(r => (
+                          <button key={r.id} onClick={() => handleSelect(r)} className="w-full text-left p-4 flex items-center justify-between bg-white dark:bg-slate-800 hover:bg-[#f5f8f2] dark:hover:bg-slate-700 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors active:scale-95 group">
+                            <span className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-[#526e35] dark:group-hover:text-[#82a061] transition-colors">{r.name}</span>
+                            <CatBadge protein={r.protein} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -873,6 +981,11 @@
           const RecipeModal = ({ recipe, onClose }) => {
             const [imgLoading, setImgLoading] = useState(true);
             if (!recipe) return null;
+
+            // Kolla om det finns lediga platser i veckomatsedeln
+            const firstEmptyIndex = mealPlan.findIndex(d => !d.recipe);
+            const firstEmptyDay = firstEmptyIndex !== -1 ? mealPlan[firstEmptyIndex] : null;
+
             return (
               <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={onClose}>
                 <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg my-8 flex flex-col border border-slate-200/60 dark:border-slate-700 relative overflow-hidden" style={{ maxHeight: 'calc(100vh - 4rem)' }} onClick={e => e.stopPropagation()}>
@@ -891,9 +1004,9 @@
                     </div>
                   </div>
                   
-                  <div className="p-6 pt-24 overflow-y-auto flex-1">
+                  <div className="p-6 pt-24 overflow-y-auto flex-1 flex flex-col">
                     <div className="mb-6 relative">
-                      <button onClick={e => triggerImageUpload(e, recipe.id)} className="absolute top-0 right-0 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-500 rounded-full shadow-sm border z-30" title="Lägg till egen bild"><ImagePlus size={20} /></button>
+                      <button onClick={e => triggerImageUpload(e, recipe.id)} className="absolute top-0 right-0 p-2.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-slate-500 rounded-full shadow-sm border z-30 hover:text-[#526e35] dark:hover:text-[#82a061] transition-colors" title="Lägg till egen bild"><ImagePlus size={20} /></button>
                       <span className="text-xs font-bold text-[#526e35] dark:text-[#82a061] uppercase tracking-widest mb-2 block">{recipe.collection}</span>
                       <h2 className="text-3xl font-extrabold dark:text-slate-100 leading-tight mb-4 pr-12">{recipe.name}</h2>
                       <div className="w-full h-48 sm:h-64 bg-slate-100 dark:bg-slate-700 rounded-2xl mb-5 overflow-hidden shadow-inner border relative">
@@ -921,6 +1034,28 @@
                         </div>
                       </div>
                     </div>
+                    
+                    {/* HÄR ÄR DEN NYA "LÄGG TILL I MATSEDEL" KNAPPEN */}
+                    {firstEmptyDay && !isPlanLocked && (
+                      <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-700">
+                        <button onClick={() => {
+                            const currentPlan = [...mealPlan];
+                            const recipeToSave = { ...recipe };
+                            delete recipeToSave.customImage; // Spara plats i molnet
+                            
+                            currentPlan[firstEmptyIndex].recipe = recipeToSave;
+                            currentPlan[firstEmptyIndex].targetProteinMarker = recipe.protein.toLowerCase();
+                            currentPlan[firstEmptyIndex].targetCollectionMarker = recipe.collection;
+                            
+                            setMealPlan(currentPlan);
+                            updateSettingsInDb({ mealPlan: currentPlan });
+                            onClose();
+                            showToast(`Receptet lades till på ${firstEmptyDay.dayName} (V.${firstEmptyDay.weekNumber})!`);
+                        }} className="w-full px-6 py-4 bg-[#526e35] hover:bg-[#3d5226] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md">
+                            <CalendarPlus size={20} /> Lägg till på {firstEmptyDay.dayName} (V.{firstEmptyDay.weekNumber})
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -980,43 +1115,98 @@
                                 <div className="flex items-center gap-4"><div className="bg-[#e4ede0] dark:bg-[#171f0d]/40 p-3.5 rounded-2xl shadow-inner border border-[#f5f8f2] hidden sm:block"><Calendar size={28} className="text-[#526e35]" /></div><div><h2 className="text-2xl sm:text-3xl font-black drop-shadow-sm leading-tight">Din Matsedel</h2><p className="text-slate-500 mt-1">Planera smart och spara tid.</p></div></div>
                                 {!isPlanLocked ? (
                                   <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                                      <div className="relative flex-1 sm:flex-none"><select value={planStartOffset} onChange={e => { const val = Number(e.target.value); setPlanStartOffset(val); updateSettingsInDb({ planStartOffset: val }); }} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer"><option value={0}>Denna vecka</option><option value={1}>Nästa vecka</option><option value={2}>Om 2 veckor</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div></div>
-                                      <div className="relative flex-1 sm:flex-none"><select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer"><option value="week">1 vecka</option><option value="2weeks">2 veckor</option><option value="3weeks">3 veckor</option><option value="month">4 veckor</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div></div>
+                                      <div className="relative flex-1 sm:flex-none">
+                                        <select value={planStartOffset} onChange={e => { const val = Number(e.target.value); setPlanStartOffset(val); updateSettingsInDb({ planStartOffset: val }); }} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer">
+                                            <option value={0}>Denna vecka (v.{getISOWeekNumber(new Date())})</option>
+                                            <option value={1}>Nästa vecka (v.{getISOWeekNumber(new Date(new Date().setDate(new Date().getDate() + 7)))})</option>
+                                            <option value={2}>Om 2 veckor (v.{getISOWeekNumber(new Date(new Date().setDate(new Date().getDate() + 14)))})</option>
+                                            <option value={3}>Om 3 veckor (v.{getISOWeekNumber(new Date(new Date().setDate(new Date().getDate() + 21)))})</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div>
+                                      </div>
+                                      <div className="relative flex-1 sm:flex-none">
+                                        <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full appearance-none bg-white dark:bg-slate-900 pl-4 pr-10 py-3.5 rounded-2xl border shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-[#6a8a47] cursor-pointer">
+                                            <option value="week">1 vecka</option>
+                                            <option value="2weeks">2 veckor</option>
+                                            <option value="3weeks">3 veckor</option>
+                                            <option value="month">4 veckor</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><ChevronDown size={16} strokeWidth={3} /></div>
+                                      </div>
                                       <button onClick={() => generatePlan(planType)} className="flex-1 sm:flex-none px-6 py-3.5 bg-[#526e35] text-white rounded-2xl font-black text-sm active:scale-95 shadow-lg flex items-center justify-center gap-2"><RefreshCw size={16} strokeWidth={3} /> Slumpa</button>
                                   </div>
-                                ) : ( <div className="mt-4 md:mt-0"><button onClick={toggleLock} className="flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-black shadow-md border bg-amber-50 text-amber-700 w-full justify-center"><Lock size={16} strokeWidth={3} /> Matsedeln är låst</button></div> )}
+                                ) : ( 
+                                  <div className="mt-4 md:mt-0 w-full md:w-auto">
+                                    <button onClick={toggleLock} className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-black shadow-md border bg-amber-50 text-amber-700 w-full md:w-auto active:scale-95">
+                                        <Lock size={16} strokeWidth={3} /> Matsedeln är låst
+                                    </button>
+                                  </div> 
+                                )}
                               </div>
-                              {!isPlanLocked && mealPlan.length > 0 && <div className="flex justify-end mb-6"><button onClick={toggleLock} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm border bg-white dark:bg-slate-800"><Unlock size={16} /> Lås matsedeln</button></div>}
+                              {!isPlanLocked && mealPlan.length > 0 && (
+                                  <div className="flex justify-end mb-6">
+                                    <button onClick={toggleLock} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm border bg-white dark:bg-slate-800 active:scale-95">
+                                        <Unlock size={16} /> Lås matsedeln
+                                    </button>
+                                  </div>
+                              )}
                               {mealPlan.length > 0 && (
                                   <div className="space-y-12">
                                   {Array.from({ length: planType === 'week' ? 1 : planType === '2weeks' ? 2 : planType === '3weeks' ? 3 : 4 }).map((_, weekIndex) => {
-                                      const targetDate = new Date(); targetDate.setDate(targetDate.getDate() + ((weekIndex + planStartOffset) * 7));
+                                      const targetDate = new Date(); 
+                                      targetDate.setDate(targetDate.getDate() + ((weekIndex + planStartOffset) * 7));
                                       const actualWeekNum = getISOWeekNumber(targetDate);
+                                      const isThisWeekLocked = lockedWeeks[actualWeekNum]; // Kolla om veckan är låst
+                                      
                                       return (
-                                          <div key={weekIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-700" style={{animationDelay: `${weekIndex * 100}ms`}}>
-                                            <h3 className="text-xl font-extrabold mb-5 flex items-center gap-3"><span className="bg-slate-800 dark:bg-slate-700 text-white w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-md">V{actualWeekNum}</span> Vecka {actualWeekNum}</h3>
-                                            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-[2rem] shadow-xl border overflow-hidden">
+                                          <div key={weekIndex} className="animate-in fade-in slide-in-from-bottom-4 duration-700" style={{animationDelay: `${weekIndex * 100}ms`, fillMode: 'both'}}>
+                                            <div className="flex items-center justify-between mb-5">
+                                                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-3">
+                                                  <span className="bg-slate-800 dark:bg-slate-700 text-white w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-md">V{actualWeekNum}</span> 
+                                                  Vecka {actualWeekNum}
+                                                </h3>
+                                                {!isPlanLocked && (
+                                                  <button onClick={() => toggleWeekLock(actualWeekNum)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-sm border transition-colors active:scale-95 ${isThisWeekLocked ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                                                      {isThisWeekLocked ? <Lock size={16} strokeWidth={2.5} /> : <Unlock size={16} strokeWidth={2.5} />}
+                                                      <span className="hidden sm:inline">{isThisWeekLocked ? 'Veckan är låst' : 'Lås vecka'}</span>
+                                                  </button>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-[2rem] shadow-xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
                                                 <div className="divide-y divide-slate-100/80 dark:divide-slate-700/50">
                                                 {mealPlan.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, idx) => {
-                                                  const actualIndex = (weekIndex * 7) + idx; const hasRecipe = !!day.recipe;
+                                                  const actualIndex = (weekIndex * 7) + idx; 
+                                                  const hasRecipe = !!day.recipe;
+                                                  
                                                   return (
                                                       <div key={actualIndex} className={`p-4 sm:p-6 flex items-center justify-between transition-all duration-300 ${hasRecipe ? 'hover:bg-slate-50/50 dark:hover:bg-slate-700/30' : 'bg-slate-50/30 dark:bg-slate-900/30'}`}>
                                                         {hasRecipe ? (
                                                           <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0 group cursor-pointer" onClick={() => setSelectedRecipeId(day.recipe.id)}>
-                                                              <p className="font-black w-16 sm:w-24 text-sm sm:text-base">{day.dayName}</p>
-                                                              <div className="flex-1 text-left font-bold text-base sm:text-lg group-hover:text-[#526e35] truncate flex items-center gap-2"><span className="truncate">{day.recipe.name}</span><ExternalLink size={16} className="opacity-0 group-hover:opacity-100 hidden sm:block" /></div>
+                                                              <p className="font-black text-slate-700 dark:text-slate-300 w-16 sm:w-24 text-sm sm:text-base flex-shrink-0">{day.dayName}</p>
+                                                              <div className="flex-1 text-left font-bold text-slate-900 dark:text-slate-100 text-base sm:text-lg group-hover:text-[#526e35] dark:group-hover:text-[#82a061] truncate flex items-center gap-2">
+                                                                <span className="truncate">{day.recipe.name}</span>
+                                                                <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 text-[#6a8a47] hidden sm:block" />
+                                                              </div>
                                                           </div>
                                                         ) : (
-                                                          <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0 opacity-60"><p className="font-extrabold w-16 sm:w-24 text-sm sm:text-base">{day.dayName}</p><p className="flex-1 text-left font-medium text-base sm:text-lg italic">Inget planerat</p></div>
+                                                          <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0 opacity-60">
+                                                              <p className="font-extrabold text-slate-400 dark:text-slate-500 w-16 sm:w-24 text-sm sm:text-base flex-shrink-0">{day.dayName}</p>
+                                                              <p className="flex-1 text-left font-medium text-slate-400 dark:text-slate-500 text-base sm:text-lg italic">Inget planerat</p>
+                                                          </div>
                                                         )}
+                                                        
                                                         <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0 ml-4">
                                                             {hasRecipe && <div className="hidden sm:block"><CatBadge protein={day.recipe.protein} /></div>}
-                                                            {!isPlanLocked && (
-                                                              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border shadow-sm">
+                                                            {!isPlanLocked && !isThisWeekLocked && (
+                                                              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/80 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-sm">
                                                                 {hasRecipe ? (
-                                                                  <><button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-white dark:bg-slate-800 rounded-xl active:scale-95 shadow-sm border"><RefreshCw size={16} strokeWidth={2.5} /></button><button onClick={() => clearDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-red-400 rounded-xl active:scale-95 shadow-sm border"><X size={16} strokeWidth={2.5} /></button></>
+                                                                  <><button onClick={() => swapDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-white dark:bg-slate-800 rounded-xl active:scale-95 shadow-sm border" title="Byt recept"><RefreshCw size={16} strokeWidth={2.5} /></button><button onClick={() => clearDayRecipe(actualIndex)} className="p-2 sm:p-2.5 bg-white dark:bg-slate-800 text-red-400 rounded-xl active:scale-95 shadow-sm border" title="Tömna denna dag"><X size={16} strokeWidth={2.5} /></button></>
                                                                 ) : (
-                                                                  <button onClick={() => swapDayRecipe(actualIndex)} className="px-4 py-2.5 bg-white dark:bg-slate-800 text-[#526e35] rounded-xl active:scale-95 shadow-sm border flex items-center gap-1.5"><Plus size={16} strokeWidth={3} /> <span className="text-xs font-extrabold hidden sm:inline">Lägg till</span></button>
+                                                                  // HÄR ÄR ÄNDRINGEN - Nu öppnar knappen manuell val-modal istället för att slumpa direkt
+                                                                  <button onClick={() => setSelectingForDayIndex(actualIndex)} className="px-4 py-2.5 bg-white dark:bg-slate-800 text-[#526e35] dark:text-[#82a061] rounded-xl active:scale-95 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-1.5">
+                                                                    <Plus size={16} strokeWidth={3} /> <span className="text-xs font-extrabold hidden sm:inline">Välj manuellt</span>
+                                                                  </button>
                                                                 )}
                                                               </div>
                                                             )}
@@ -1079,6 +1269,19 @@
                         </div>
                       </div>
                     </div>
+
+                    {/* HÄR ÄR DEN NYA SÖKRUTAN FÖR RECEPT OCH INGREDIENSER */}
+                    <div className="mb-6 relative max-w-lg">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                      <input 
+                         type="text" 
+                         placeholder="Sök på recept eller ingrediens..." 
+                         value={recipeSearchQuery} 
+                         onChange={(e) => setRecipeSearchQuery(e.target.value)}
+                         className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm focus:ring-2 focus:ring-[#6a8a47] outline-none text-slate-800 dark:text-slate-100 font-medium" 
+                      />
+                    </div>
+
                     {recipes.length > 0 && (
                         <div className="flex overflow-x-auto hide-scrollbar gap-3 mb-8 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
                             {BOOK_COLLECTIONS.map(cat => ( <button key={cat} onClick={() => setSelectedCollection(cat)} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-extrabold whitespace-nowrap border shadow-sm active:scale-95 ${selectedCollection === cat ? 'bg-slate-800 dark:bg-[#526e35] text-white' : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300'}`}>{cat === 'Alla' && <Filter size={16} />} {cat}</button> ))}
@@ -1135,6 +1338,7 @@
               <ApiModal />
               {selectedRecipeId && <RecipeModal recipe={recipes.find(r => r.id === selectedRecipeId)} onClose={() => setSelectedRecipeId(null)} />}
               {(showAddModal || editingRecipeId) && <AddRecipeModal />}
+              <DayRecipePickerModal />
               <ShareModal />
             </div>
           </div>
