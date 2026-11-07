@@ -4,10 +4,10 @@
  * - Databas, inloggning, AI och bilduppladdning går alltid direkt mot nätet (Firebase sköter själv sin offline-cache).
  * Versionen byts automatiskt av byggskriptet; när den ändras installeras den nya versionen och appen visar "Ny version finns".
  */
-const VERSION = '2cb02b5e7a';
+const VERSION = '2b77f3c937';
 const APP_CACHE = `kockbot-app-${VERSION}`;
 const CDN_CACHE = 'kockbot-cdn-v1';
-const PRECACHE = ['./KockBot.html', './kockbot-app.js?v=2cb02b5e7a', './kockbot.css?v=2cb02b5e7a', './logo.png', './manifest.json'];
+const PRECACHE = ['./KockBot.html', './kockbot-app.js?v=2b77f3c937', './kockbot.css?v=2b77f3c937', './logo.png', './manifest.json'];
 const CDN_HOSTS = ['www.gstatic.com', 'esm.sh', 'unpkg.com', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {

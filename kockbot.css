@@ -292,6 +292,9 @@
   .inset-0 {
     inset: 0px;
   }
+  .-top-2 {
+    top: calc(var(--spacing) * -2);
+  }
   .top-0 {
     top: 0px;
   }
@@ -306,6 +309,9 @@
   }
   .top-24 {
     top: calc(var(--spacing) * 24);
+  }
+  .-right-2 {
+    right: calc(var(--spacing) * -2);
   }
   .right-0 {
     right: 0px;
@@ -378,6 +384,9 @@
   }
   .z-\[75\] {
     z-index: 75;
+  }
+  .col-span-2 {
+    grid-column: span 2 / span 2;
   }
   .-mx-4 {
     margin-inline: calc(var(--spacing) * -4);
