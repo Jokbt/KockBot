@@ -4,10 +4,10 @@
  * - Databas, inloggning, AI och bilduppladdning går alltid direkt mot nätet (Firebase sköter själv sin offline-cache).
  * Versionen byts automatiskt av byggskriptet; när den ändras installeras den nya versionen och appen visar "Ny version finns".
  */
-const VERSION = 'cf74166a39';
+const VERSION = '6a07654d45';
 const APP_CACHE = `kockbot-app-${VERSION}`;
 const CDN_CACHE = 'kockbot-cdn-v1';
-const PRECACHE = ['./KockBot.html', './kockbot-app.js?v=cf74166a39', './kockbot.css?v=cf74166a39', './logo.png', './manifest.json'];
+const PRECACHE = ['./KockBot.html', './kockbot-app.js?v=6a07654d45', './kockbot.css?v=6a07654d45', './logo.png', './manifest.json'];
 const CDN_HOSTS = ['www.gstatic.com', 'esm.sh', 'unpkg.com', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {
@@ -64,4 +64,31 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(staleWhileRevalidate(event, CDN_CACHE));
   }
   // Allt annat (Firestore, inloggning, Gemini, Storage, AI-bilder) går direkt till nätet.
+});
+
+// ---- Påminnelser (skickas av notiser/skicka.mjs via GitHub) ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  const shown = self.registration.showNotification(data.title || 'KockBot', {
+    body: data.body || '',
+    icon: './logo.png',
+    badge: './logo.png',
+    tag: data.tag || 'kockbot',
+    lang: 'sv',
+    data: { url: data.url || './' },
+  });
+  try { event.waitUntil(shown); } catch (e) { /* testhändelser */ }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  const open = (async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const existing = windows.find((w) => w.url.startsWith(self.registration.scope));
+    if (existing) return existing.focus();
+    return self.clients.openWindow(url);
+  })();
+  try { event.waitUntil(open); } catch (e) { /* testhändelser */ }
 });
