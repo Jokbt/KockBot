@@ -1,0 +1,41 @@
+# KockBot – påminnelser till telefonen
+# Ligger i ert GitHub-repo som .github/workflows/kockbot-notiser.yml
+# GitHub kör den var 15:e minut (det kan bli några minuter sent när GitHub har mycket att göra).
+# Under fliken Actions kan ni också trycka "Run workflow" för att skicka en testnotis.
+
+name: KockBot-notiser
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Skicka en testnotis till alla telefoner'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kockbot-notiser
+  cancel-in-progress: false
+
+jobs:
+  skicka:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: notiser
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Skicka påminnelser
+        run: node notiser/skicka.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.test }}
