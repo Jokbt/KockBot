@@ -7,7 +7,9 @@
 const VERSION = '6a07654d45';
 const APP_CACHE = `kockbot-app-${VERSION}`;
 const CDN_CACHE = 'kockbot-cdn-v1';
-const PRECACHE = ['./KockBot.html', './kockbot-app.js?v=6a07654d45', './kockbot.css?v=6a07654d45', './logo.png', './manifest.json'];
+// './' är startsidan (index.html på GitHub Pages). KockBot.html finns bara kvar för lokal testning.
+const PRECACHE = ['./', './kockbot-app.js?v=6a07654d45', './kockbot.css?v=6a07654d45', './logo.png', './manifest.json'];
+const START_PAGES = ['./', './index.html', './KockBot.html'];
 const CDN_HOSTS = ['www.gstatic.com', 'esm.sh', 'unpkg.com', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {
@@ -45,8 +47,10 @@ const staleWhileRevalidate = async (event, cacheName) => {
   const response = await network;
   if (response) return response;
   if (isNavigation) {
-    const fallback = await cache.match('./KockBot.html');
-    if (fallback) return fallback;
+    for (const page of START_PAGES) {
+      const fallback = await cache.match(page, { ignoreVary: true });
+      if (fallback) return fallback;
+    }
   }
   return Response.error();
 };
