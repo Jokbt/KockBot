@@ -1,45 +1,2296 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>KockBot</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beskapp</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Betygsätt kvällens beskflaskor och se topplistan.">
 
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#bacca0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="KockBot">
-    <link rel="apple-touch-icon" href="./logo.png">
-    <link rel="manifest" href="manifest.json">
+<!-- iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Beskapp">
+<meta name="theme-color" content="#24307F" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0C2B" media="(prefers-color-scheme: dark)">
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Android/Chrome -->
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
 
-    <link rel="stylesheet" href="kockbot.css?v=290392519f">
+<!-- Ikoner: SVG för webbläsarfliken, PNG för hemskärmen (iOS kan inte använda SVG där) -->
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
-    <!-- Import Map -->
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react"
-      }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Shrikhand&display=swap" rel="stylesheet">
+
+<style>
+  /* Kräftskiva i augustikvällen: lyktgult underlag, vimplar, klistermärkesrunda kort med tjock kontur */
+  :root {
+    color-scheme: light;
+    --paper: #FFEDA6;        /* lyktsken */
+    --card: #FFFFFF;
+    --ink: #1F1D47;
+    --muted: #5B587E;
+    --outline: #1F1D47;
+    --night: #24307F;        /* kvällshimmel */
+    --night-ink: #FFF6D8;
+    --red: #EF4A2F;          /* kräfta */
+    --red-soft: #FFE1D9;
+    --on-red: #FFFFFF;
+    --yellow: #FFC21A;       /* lykta och besk */
+    --yellow-soft: #FFF7D6;
+    --on-yellow: #1F1D47;
+    --green: #23A05A;        /* malört */
+    --green-soft: #DDF5E5;
+    --on-green: #FFFFFF;
+    --blue: #3358E0;         /* vimpel */
+    --blue-soft: #E1E8FF;
+    --on-blue: #FFFFFF;
+    --pink: #FF6FAE;
+    --pink-soft: #FFE3EF;
+    --danger: #C22E16;
+    --display: "Shrikhand", "Cooper Black", Georgia, serif;
+    --ui: "Fredoka", "Arial Rounded MT Bold", "Nunito", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15133A;
+      --card: #25225C;
+      --ink: #FFF6DA;
+      --muted: #BBB6E2;
+      --outline: #07061C;
+      --night: #0E0C2B;
+      --night-ink: #FFF6DA;
+      --red: #FF6A4D;
+      --red-soft: #4A2244;
+      --on-red: #14122F;
+      --yellow: #FFCB3A;
+      --yellow-soft: #3D3550;
+      --on-yellow: #14122F;
+      --green: #3CC476;
+      --green-soft: #1D3D4C;
+      --on-green: #14122F;
+      --blue: #7B94FF;
+      --blue-soft: #2C3478;
+      --on-blue: #14122F;
+      --pink: #FF86BD;
+      --pink-soft: #4A2560;
+      --danger: #FF8A73;
+      color-scheme: dark;
     }
-    </script>
+  }
+  :root[data-theme="dark"] {
+    --paper: #15133A;
+    --card: #25225C;
+    --ink: #FFF6DA;
+    --muted: #BBB6E2;
+    --outline: #07061C;
+    --night: #0E0C2B;
+    --night-ink: #FFF6DA;
+    --red: #FF6A4D;
+    --red-soft: #4A2244;
+    --on-red: #14122F;
+    --yellow: #FFCB3A;
+    --yellow-soft: #3D3550;
+    --on-yellow: #14122F;
+    --green: #3CC476;
+    --green-soft: #1D3D4C;
+    --on-green: #14122F;
+    --blue: #7B94FF;
+    --blue-soft: #2C3478;
+    --on-blue: #14122F;
+    --pink: #FF86BD;
+    --pink-soft: #4A2560;
+    --danger: #FF8A73;
+    color-scheme: dark;
+  }
 
-    <style>[contenteditable][data-placeholder]:empty::before { content: attr(data-placeholder); pointer-events: none; }</style>
+  .tone-yellow { --c: var(--yellow); --c-soft: var(--yellow-soft); --on-c: var(--on-yellow); }
+  .tone-green  { --c: var(--green);  --c-soft: var(--green-soft);  --on-c: var(--on-green); }
+  .tone-red    { --c: var(--red);    --c-soft: var(--red-soft);    --on-c: var(--on-red); }
+  .tone-blue   { --c: var(--blue);   --c-soft: var(--blue-soft);   --on-c: var(--on-blue); }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--ui);
+    font-size: 17px;
+    line-height: 1.4;
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; }
+  svg { display: block; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+
+  /* ---------- Kvällshimlen med vimplar ---------- */
+  .hero {
+    position: relative;
+    background: var(--night);
+    color: var(--night-ink);
+    border-radius: 0 0 34px 34px;
+    padding-top: env(safe-area-inset-top, 0px);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, var(--night-ink) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 70% 60%, var(--night-ink) 0 1.2px, transparent 1.8px);
+    background-size: 46px 38px, 62px 54px;
+    opacity: .28;
+    pointer-events: none;
+  }
+  .garland { position: relative; width: 100%; height: 50px; }
+  .hero-inner {
+    position: relative;
+    max-width: 30rem; margin: 0 auto;
+    display: flex; align-items: center; gap: 14px;
+    padding-block: 2px 26px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .mark {
+    width: 62px; height: 62px; flex: none;
+    border-radius: 50%;
+    background: var(--yellow); color: var(--on-yellow);
+    border: 3px solid var(--outline);
+    box-shadow: 3px 3px 0 var(--outline);
+    display: grid; place-items: center;
+    transform: rotate(-8deg);
+  }
+  .mark svg { width: 38px; height: 38px; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 2.7rem;
+    line-height: 1.05;
+    margin: 0;
+    color: var(--yellow);
+    text-shadow: 3px 3px 0 var(--red);
+    transform: rotate(-2deg);
+    transform-origin: left center;
+  }
+  .sub { margin: 6px 0 0; font-weight: 500; font-size: 1rem; opacity: .9; }
+
+  /* ---------- Sidan ---------- */
+  .app {
+    max-width: 30rem;
+    margin: 0 auto;
+    padding-block: 18px calc(env(safe-area-inset-bottom, 0px) + 116px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { display: flex; flex-direction: column; gap: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--card);
+    border: 2.5px solid var(--outline);
+    border-radius: 24px;
+    box-shadow: 4px 4px 0 var(--outline);
+    padding: 16px;
+  }
+  .card-title { display: block; font-weight: 600; font-size: 1.12rem; margin: 0 0 10px; }
+
+  /* Snapsfakta */
+  .fact { background: var(--pink-soft); }
+  .fact-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .fact-head strong { font-weight: 700; font-size: 1.02rem; }
+  .fact p { margin: 0; font-size: 1.04rem; line-height: 1.4; }
+  .pill-btn {
+    border: 2px solid var(--outline);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 4px 14px; min-height: 38px;
+    font-weight: 600; font-size: .95rem;
+    cursor: pointer;
+  }
+  .pill-btn:active { transform: translate(1px, 1px); }
+
+  /* Fält */
+  input[type="text"], textarea {
+    width: 100%;
+    font: inherit; font-size: 1.08rem; font-weight: 500;
+    color: var(--ink);
+    background: var(--paper);
+    border: 2.5px solid var(--outline);
+    border-radius: 16px;
+    padding: 11px 14px;
+    outline: none;
+  }
+  textarea { resize: vertical; min-height: 76px; font-weight: 400; }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
+  input[type="text"]:focus, textarea:focus { box-shadow: 0 0 0 4px var(--blue-soft); border-color: var(--blue); }
+  .field.invalid input { border-color: var(--danger); box-shadow: 0 0 0 4px var(--red-soft); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chips:empty { display: none; }
+  .chip {
+    border: 2px solid var(--outline);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 5px 15px; min-height: 42px;
+    font-weight: 600; font-size: 1rem;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: transform .12s;
+  }
+  .chip:active { transform: scale(.95); }
+  .chip[aria-pressed="true"] { background: var(--blue); color: var(--on-blue); box-shadow: 2px 2px 0 var(--outline); }
+  .chip.done:not([aria-pressed="true"]) { border-style: dashed; color: var(--muted); background: transparent; }
+  .hint { margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
+
+  /* Betyg: färgade kort med runda bubblor */
+  .crit { margin: 0; min-width: 0; background: var(--c-soft); }
+  .crit legend { float: left; width: 100%; padding: 0; margin: 0 0 12px; }
+  .crit-head { display: flex; align-items: center; gap: 10px; }
+  .crit-icon {
+    width: 38px; height: 38px; flex: none;
+    border-radius: 50%;
+    background: var(--c); color: var(--on-c);
+    border: 2.5px solid var(--outline);
+    display: grid; place-items: center;
+  }
+  .crit-icon svg { width: 20px; height: 20px; }
+  .crit-name { font-weight: 700; font-size: 1.2rem; flex: 1; }
+  .crit-word {
+    font-weight: 600; font-size: .95rem;
+    background: var(--card);
+    border: 2px solid var(--outline);
+    border-radius: 999px;
+    padding: 2px 12px;
+    white-space: nowrap;
+  }
+  .crit-word.unset { border-style: dashed; color: var(--muted); background: transparent; }
+  .crit.invalid { border-color: var(--danger); box-shadow: 4px 4px 0 var(--danger); }
+  .crit.invalid .crit-word { color: var(--danger); border-color: var(--danger); }
+
+  .scale { clear: both; display: flex; justify-content: space-between; gap: 8px; }
+  .scale.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-items: center; }
+  .b {
+    position: relative;
+    flex: 1; width: 100%; max-width: 60px; aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2.5px solid var(--outline);
+    background: var(--card);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 1.3rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .b input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; border-radius: 50%; }
+  .b > span { pointer-events: none; display: grid; justify-items: center; line-height: 1.05; }
+  .b small { font-size: .62rem; font-weight: 600; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .b.on { background: var(--c); color: var(--on-c); }
+  .b.sel { box-shadow: 3px 3px 0 var(--outline); }
+  .b.pop { animation: pop .38s cubic-bezier(.3, 1.6, .5, 1); }
+  .b.used { border-style: dashed; background: transparent; color: var(--muted); cursor: not-allowed; }
+  .b.used input { cursor: not-allowed; }
+  .b:has(input:focus-visible) { outline: 3px solid var(--blue); outline-offset: 3px; }
+  @keyframes pop {
+    0% { transform: scale(.85); }
+    55% { transform: scale(1.18) rotate(-8deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  /* Antal hushåll i rankningen */
+  .hh { clear: both; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .hh label { font-weight: 600; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .step {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2.5px solid var(--outline);
+    background: var(--card);
+    font-size: 1.5rem; font-weight: 700; line-height: 1;
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  .step:active { transform: scale(.92); }
+  .stepper input[type="text"] { width: 4rem; text-align: center; padding: 8px 6px; font-weight: 700; font-size: 1.2rem; }
+  .crit .hint { margin: 6px 0 14px; }
+
+  .editing {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    background: var(--blue-soft);
+    padding: 10px 10px 10px 16px;
+    font-weight: 500;
+  }
+  .error {
+    margin: 0;
+    background: var(--red-soft); color: var(--danger);
+    border: 2px solid var(--danger);
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-weight: 600;
+  }
+
+  /* Knappar */
+  .btn {
+    border: 2.5px solid var(--outline);
+    border-radius: 999px;
+    box-shadow: 4px 4px 0 var(--outline);
+    padding: 12px 20px; min-height: 56px;
+    font-weight: 700; font-size: 1.12rem;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--outline); }
+  .btn-go { background: var(--red); color: var(--on-red); }
+  .btn-blue { background: var(--blue); color: var(--on-blue); }
+  .btn-plain { background: var(--card); color: var(--ink); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-outline-danger { background: var(--card); color: var(--danger); }
+  .row { display: flex; gap: 12px; }
+  .row .btn { flex: 1; }
+  .live {
+    background: var(--yellow); color: var(--on-yellow);
+    border: 2px solid var(--outline);
+    border-radius: 999px;
+    padding: 0 10px;
+    font-family: var(--display); font-weight: 400; font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  /* ---------- Topplistan ---------- */
+  .board-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2 {
+    font-family: var(--display); font-weight: 400;
+    font-size: 2.3rem; line-height: 1.1;
+    margin: 0;
+    color: var(--red);
+    text-shadow: 2px 2px 0 var(--outline);
+  }
+  .meta { color: var(--muted); font-weight: 500; }
+
+  .podium {
+    display: grid; gap: 10px; align-items: end;
+    width: 100%; max-width: 24rem; margin: 4px auto 0;
+    padding-inline: 4px;
+    border-bottom: 3px solid var(--outline);
+  }
+  .pod {
+    background: none; border: 0; padding: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 0; cursor: pointer;
+  }
+  .crown { width: 38px; height: 26px; margin-bottom: -2px; transform: rotate(-6deg); }
+  .pod-name { font-weight: 600; font-size: 1rem; line-height: 1.15; text-align: center; overflow-wrap: anywhere; max-width: 100%; }
+  .pod-score { font-family: var(--display); font-size: 1.7rem; line-height: 1; }
+  .pod-block {
+    width: 100%;
+    border: 2.5px solid var(--outline); border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    display: grid; justify-items: center; align-content: start;
+    padding-top: 6px;
+    font-family: var(--display); font-size: 2.3rem; line-height: 1.2;
+    margin-top: 4px;
+  }
+  .p1 .pod-block { height: 124px; background: var(--yellow); color: var(--on-yellow); }
+  .p2 .pod-block { height: 92px; background: var(--blue); color: var(--on-blue); }
+  .p3 .pod-block { height: 68px; background: var(--red); color: var(--on-red); }
+
+  .list-title { font-weight: 700; font-size: 1.15rem; margin: 6px 2px -4px; }
+  .board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .entry { padding: 0; overflow: hidden; scroll-margin-top: 16px; }
+  .sum {
+    width: 100%;
+    background: none; border: 0; text-align: left; cursor: pointer;
+    display: grid; grid-template-columns: 46px 1fr auto 20px; gap: 12px; align-items: center;
+    padding: 12px 14px 12px 12px;
+  }
+  .rank-badge {
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2.5px solid var(--outline);
+    background: var(--paper);
+    display: grid; place-items: center;
+    font-family: var(--display); font-size: 1.35rem; line-height: 1;
+  }
+  .r1 .rank-badge { background: var(--yellow); color: var(--on-yellow); }
+  .r2 .rank-badge { background: var(--blue); color: var(--on-blue); }
+  .r3 .rank-badge { background: var(--red); color: var(--on-red); }
+  .bmain { min-width: 0; }
+  .bname { display: block; font-weight: 600; font-size: 1.18rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .bstats { display: block; color: var(--muted); font-size: .92rem; }
+  .score { text-align: right; line-height: 1; }
+  .score b { display: block; font-family: var(--display); font-weight: 400; font-size: 1.8rem; }
+  .score span { font-size: .8rem; color: var(--muted); font-weight: 500; }
+  .chev { width: 20px; height: 20px; color: var(--muted); transition: transform .2s; }
+  .sum[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  .details { border-top: 2.5px dashed var(--outline); padding: 14px 14px 6px; }
+  .bars { display: grid; grid-template-columns: auto 1fr 2.4rem; gap: 8px 10px; align-items: center; margin-bottom: 10px; font-weight: 500; }
+  .bar { height: 14px; border-radius: 999px; background: var(--c-soft); border: 2px solid var(--outline); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c); border-right: 2px solid var(--outline); }
+  .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ratings { list-style: none; margin: 0; padding: 0; }
+  .rating { display: flex; gap: 2px; align-items: flex-start; padding: 12px 0; }
+  .rating + .rating { border-top: 2px dotted var(--muted); }
+  .r-main { flex: 1; min-width: 0; padding-top: 2px; }
+  .r-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .r-name { font-weight: 700; font-size: 1.05rem; overflow-wrap: anywhere; }
+  .r-val { font-family: var(--display); font-size: 1.1rem; }
+  .r-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .mini {
+    background: var(--c-soft);
+    border: 1.5px solid var(--outline);
+    border-radius: 999px;
+    padding: 0 10px;
+    font-size: .88rem; font-weight: 600;
+  }
+  .r-comment { margin: 6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+  .icon-btn {
+    width: 44px; height: 44px; flex: none;
+    border: 2px solid transparent; border-radius: 50%;
+    background: transparent; color: var(--muted);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .icon-btn svg { width: 21px; height: 21px; }
+  .icon-btn:hover { border-color: var(--outline); color: var(--ink); background: var(--card); }
+  .icon-btn.del:hover { color: var(--danger); }
+
+  .empty { text-align: center; padding: 28px 20px 22px; }
+  .empty .mark { margin: 0 auto 14px; }
+  .empty p { margin: 0 0 18px; font-size: 1.05rem; }
+
+  /* ---------- Flikrad ---------- */
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    padding-block: 0 calc(12px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    pointer-events: none;
+  }
+  .tabs-inner {
+    pointer-events: auto;
+    max-width: 24rem; margin: 0 auto;
+    display: flex; gap: 6px; padding: 6px;
+    background: var(--card);
+    border: 2.5px solid var(--outline);
+    border-radius: 999px;
+    box-shadow: 4px 4px 0 var(--outline);
+  }
+  .tab {
+    flex: 1;
+    border: 0; border-radius: 999px;
+    background: transparent; color: var(--ink);
+    min-height: 50px; padding: 4px 10px;
+    font-weight: 600; font-size: 1.02rem;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer;
+  }
+  .tab svg { width: 22px; height: 22px; flex: none; }
+  .tab[aria-selected="true"] { background: var(--ink); color: var(--card); }
+  .count {
+    min-width: 1.6em; padding: 0 6px;
+    border-radius: 999px;
+    background: var(--yellow); color: var(--on-yellow);
+    border: 2px solid var(--outline);
+    font-size: .8rem; font-weight: 700; line-height: 1.4; text-align: center;
+  }
+
+  /* ---------- Meddelanden ---------- */
+  .toast {
+    position: fixed; left: 50%; z-index: 20;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 16px) scale(.96);
+    width: max-content; max-width: calc(100% - 32px);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--ink); color: var(--card);
+    border: 2.5px solid var(--outline);
+    border-radius: 999px;
+    padding: 8px 8px 8px 20px; min-height: 52px;
+    font-weight: 600;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .25s cubic-bezier(.3, 1.4, .5, 1);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
+  .toast button {
+    background: var(--yellow); color: var(--on-yellow);
+    border: 2px solid var(--outline); border-radius: 999px;
+    font-weight: 700; cursor: pointer;
+    padding: 4px 14px; min-height: 38px;
+  }
+
+  dialog {
+    border: 2.5px solid var(--outline);
+    border-radius: 26px;
+    box-shadow: 5px 5px 0 var(--outline);
+    padding: 20px;
+    width: min(26rem, calc(100% - 32px));
+    background: var(--card); color: var(--ink);
+  }
+  dialog::backdrop { background: rgb(14 12 43 / .6); }
+  dialog h3 { font-weight: 700; font-size: 1.45rem; line-height: 1.2; margin: 0 0 8px; }
+  dialog p { margin: 0 0 20px; color: var(--muted); }
+  dialog textarea { margin-bottom: 16px; font-size: .95rem; min-height: 170px; }
+
+  /* ---------- Installera som app ---------- */
+  dialog.sheet {
+    margin: auto auto 0;
+    width: 100%; max-width: 30rem;
+    border-radius: 30px 30px 0 0;
+    border-bottom: 0;
+    box-shadow: none;
+    padding-block: 22px calc(20px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+  }
+  dialog.sheet[open] { animation: sheet-up .34s cubic-bezier(.2, .9, .3, 1); }
+  @keyframes sheet-up { from { transform: translateY(100%); } }
+  @media (min-width: 600px) {
+    dialog.sheet { margin: auto; border-radius: 26px; border-bottom: 2.5px solid var(--outline); box-shadow: 5px 5px 0 var(--outline); padding-bottom: 20px; }
+  }
+  .sheet-head { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+  .sheet-head img {
+    width: 76px; height: 76px; flex: none;
+    border-radius: 19px;
+    border: 2.5px solid var(--outline);
+    box-shadow: 3px 3px 0 var(--outline);
+  }
+  .sheet-head:focus { outline: none; }
+  .sheet-head h3 { margin: 0 0 4px; }
+  .sheet-head p { margin: 0; color: var(--muted); }
+  .install-link {
+    align-self: center;
+    background: none; border: 0; cursor: pointer;
+    color: var(--muted); font-weight: 600; font-size: .98rem;
+    text-decoration: underline; text-underline-offset: 3px;
+    padding: 10px 12px; min-height: 44px;
+  }
+  .steps { list-style: none; margin: 4px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: step; }
+  .steps li { display: flex; gap: 12px; align-items: flex-start; counter-increment: step; line-height: 1.4; }
+  .steps li::before {
+    content: counter(step);
+    flex: none; width: 34px; height: 34px; border-radius: 50%;
+    background: var(--yellow); color: var(--on-yellow);
+    border: 2.5px solid var(--outline);
+    display: grid; place-items: center;
+    font-weight: 700;
+  }
+  .steps li > span { padding-top: 5px; }
+  .steps svg { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -.25em; color: var(--blue); }
+  .steps b { font-weight: 700; }
+  .step-note { margin: -6px 0 18px; color: var(--muted); font-size: .95rem; }
+
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+
+  /* ---------- Startsida ---------- */
+  .sys {
+    width: 100%;
+    display: grid; grid-template-columns: 58px minmax(0, 1fr) 22px; gap: 14px; align-items: center;
+    text-align: left; cursor: pointer;
+    background: var(--c-soft); color: var(--ink);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .sys:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--outline); }
+  .sys .crit-icon, .setup-sys .crit-icon { width: 58px; height: 58px; }
+  .sys .crit-icon svg, .setup-sys .crit-icon svg { width: 28px; height: 28px; }
+  .sys b { display: block; font-weight: 700; font-size: 1.3rem; line-height: 1.2; }
+  .sys .d { display: block; color: var(--muted); font-size: .98rem; margin-top: 2px; }
+  .chev-r { width: 22px; height: 22px; color: var(--ink); }
+  .start-title { margin: 4px 2px 0; }
+
+  /* ---------- Inställning ---------- */
+  .back {
+    align-self: flex-start;
+    background: none; border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-weight: 600; font-size: 1.02rem; color: var(--ink);
+    padding: 8px 6px; min-height: 44px; border-radius: 12px;
+  }
+  .back svg { width: 22px; height: 22px; }
+  .setup-sys { display: flex; gap: 14px; align-items: center; background: var(--c-soft); }
+  .setup-sys b { display: block; font-weight: 700; font-size: 1.3rem; }
+  .setup-sys p { margin: 2px 0 0; color: var(--muted); }
+  .stepper.big .step { width: 54px; height: 54px; font-size: 1.8rem; }
+  .stepper.big input[type="text"] { width: 5rem; font-size: 1.7rem; padding: 8px 6px; }
+
+  /* ---------- Betygsätt ---------- */
+  .who { display: flex; flex-direction: column; gap: 10px; }
+  .who-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .who-name { display: block; font-weight: 700; font-size: 1.18rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .who-sub { display: block; color: var(--muted); font-size: .92rem; }
+  .progress { height: 16px; border-radius: 999px; border: 2px solid var(--outline); background: var(--paper); overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--green); transition: width .35s; }
+  .progress i:not([style*="width:0%"]) { border-right: 2px solid var(--outline); }
+  .progress-text { font-weight: 600; font-size: .95rem; }
+
+  .bottles { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 12px 10px; }
+  .bt {
+    position: relative;
+    aspect-ratio: 1; min-height: 54px;
+    border-radius: 18px;
+    border: 2.5px solid var(--outline);
+    background: var(--card);
+    font-weight: 700; font-size: 1.35rem;
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: transform .1s;
+  }
+  .bt:active { transform: scale(.94); }
+  .bt.wide { aspect-ratio: auto; grid-column: span 2; font-size: 1rem; padding: 8px 10px; overflow-wrap: anywhere; }
+  .bt.done { background: var(--green-soft); }
+  .bt[aria-pressed="true"] { background: var(--blue); color: var(--on-blue); box-shadow: 3px 3px 0 var(--outline); }
+  .bt .tick {
+    position: absolute; top: -9px; right: -9px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--green); color: var(--on-green);
+    border: 2px solid var(--outline);
+    display: grid; place-items: center;
+  }
+  .bt .tick svg { width: 14px; height: 14px; }
+  .ends { clear: both; display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: .86rem; font-weight: 500; color: var(--muted); }
+
+  .rank-head { margin-bottom: 4px; }
+  .rank-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rk {
+    display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+    background: var(--card);
+    border: 2px solid var(--outline);
+    border-radius: 16px;
+    padding: 6px 10px; min-height: 52px;
+  }
+  .rk-pos { width: 32px; height: 32px; border-radius: 50%; background: var(--paper); border: 2px solid var(--outline); display: grid; place-items: center; font-weight: 700; }
+  .rk-name { font-weight: 600; overflow-wrap: anywhere; }
+  .rk-pts { font-weight: 700; white-space: nowrap; }
+  .rk.cur { grid-template-columns: 34px minmax(0, 1fr) auto auto; background: var(--yellow); color: var(--on-yellow); box-shadow: 3px 3px 0 var(--outline); }
+  .rk.cur .rk-pos { background: var(--card); color: var(--ink); }
+  .mv { display: flex; gap: 6px; }
+  .mv button {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid var(--outline);
+    background: var(--card); color: var(--ink);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .mv button[disabled] { background: transparent; border-style: dashed; color: var(--on-yellow); cursor: default; }
+  .mv svg { width: 20px; height: 20px; }
+
+  /* ---------- Sparat ---------- */
+  .saved { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 26px 18px 18px; }
+  .check {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: var(--green); color: var(--on-green);
+    border: 3px solid var(--outline);
+    box-shadow: 4px 4px 0 var(--outline);
+    display: grid; place-items: center;
+    transform: rotate(-8deg);
+    animation: pop .5s cubic-bezier(.3, 1.6, .5, 1);
+    margin-bottom: 6px;
+  }
+  .check svg { width: 54px; height: 54px; }
+  .saved h2 { font-size: 2.6rem; outline: none; }
+  .saved-sum { margin: 0; font-size: 1.2rem; font-weight: 600; }
+  .saved-note { margin: 0; color: var(--muted); }
+  .saved-progress { margin: 4px 0 0; }
+  .saved-btns { width: 100%; display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+  .text-btn {
+    align-self: center;
+    background: none; border: 0; cursor: pointer;
+    color: var(--ink); font-weight: 600; font-size: 1rem;
+    text-decoration: underline; text-underline-offset: 3px;
+    padding: 10px 12px; min-height: 44px;
+  }
+  .app > .install-link { display: block; margin: 18px auto 0; }
+
+  /* ---------- Samla ihop med QR-kod ---------- */
+  .tone-pink { --c: var(--pink); --c-soft: var(--pink-soft); --on-c: var(--on-yellow); }
+  .collect { background: var(--c-soft); display: flex; flex-direction: column; gap: 14px; }
+  .collect-head { display: flex; gap: 12px; align-items: center; }
+  .collect-head b { display: block; font-weight: 700; font-size: 1.15rem; line-height: 1.2; }
+  .collect-head p { margin: 2px 0 0; color: var(--muted); }
+  .collect .row { flex-direction: column; }
+  .collect .row .btn { width: 100%; }
+  .btn-small { min-height: 44px; padding: 6px 18px; font-size: 1rem; box-shadow: 3px 3px 0 var(--outline); }
+  .qr-box { background: #fff; border: 2.5px solid var(--outline); border-radius: 20px; padding: 8px; width: min(100%, 330px); margin: 4px auto 14px; }
+  .qr-box svg { display: block; width: 100%; height: auto; }
+  dialog .qr-note { text-align: center; margin: 0 0 16px; }
+  .scan-view {
+    position: relative;
+    width: min(100%, 330px); aspect-ratio: 1;
+    margin: 4px auto 12px;
+    border-radius: 24px; overflow: hidden;
+    border: 2.5px solid var(--outline);
+    background: var(--night);
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .scan-view video { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .scan-view::after { content: ""; position: absolute; inset: 15%; border: 4px dashed var(--yellow); border-radius: 18px; pointer-events: none; }
+  .scan-view.hit { border-color: var(--green); box-shadow: 0 0 0 5px var(--green); }
+  dialog .scan-status { text-align: center; font-weight: 600; color: var(--ink); margin: 0 0 12px; min-height: 2.8em; }
+  .collected { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 0 16px; }
+  .collected:empty { display: none; }
+  .collected span { border: 2px solid var(--outline); border-radius: 999px; padding: 2px 12px; background: var(--green-soft); font-weight: 600; font-size: .95rem; }
+  .paste-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .paste-box .card-title { margin: 0; }
+  .paste-box textarea { min-height: 84px; font-size: .95rem; }
+  .paste-box .btn { align-self: flex-start; }
+</style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <!-- QR-kod: "QRCode for JavaScript", Copyright (c) 2009 Kazuhiko Arase, MIT-licens (https://www.d-project.com/) -->
-    <script>(()=>{var E=(t,e)=>()=>{try{return e||t((e={exports:{}}).exports,e),e.exports}catch(n){throw e=0,n}};var N=E((E1,G)=>{G.exports={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8}});var X=E((m1,U)=>{var s1=N();function K(t){this.mode=s1.MODE_8BIT_BYTE,this.data=t}K.prototype={getLength:function(){return this.data.length},write:function(t){for(var e=0;e<this.data.length;e++)t.put(this.data.charCodeAt(e),8)}};U.exports=K});var I=E((d1,Y)=>{var v={glog:function(t){if(t<1)throw new Error("glog("+t+")");return v.LOG_TABLE[t]},gexp:function(t){for(;t<0;)t+=255;for(;t>=256;)t-=255;return v.EXP_TABLE[t]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)};for(h=0;h<8;h++)v.EXP_TABLE[h]=1<<h;var h;for(h=8;h<256;h++)v.EXP_TABLE[h]=v.EXP_TABLE[h-4]^v.EXP_TABLE[h-5]^v.EXP_TABLE[h-6]^v.EXP_TABLE[h-8];var h;for(h=0;h<255;h++)v.LOG_TABLE[v.EXP_TABLE[h]]=h;var h;Y.exports=v});var b=E((T1,x)=>{var A=I();function _(t,e){if(t.length===void 0)throw new Error(t.length+"/"+e);for(var n=0;n<t.length&&t[n]===0;)n++;this.num=new Array(t.length-n+e);for(var r=0;r<t.length-n;r++)this.num[r]=t[r+n]}_.prototype={get:function(t){return this.num[t]},getLength:function(){return this.num.length},multiply:function(t){for(var e=new Array(this.getLength()+t.getLength()-1),n=0;n<this.getLength();n++)for(var r=0;r<t.getLength();r++)e[n+r]^=A.gexp(A.glog(this.get(n))+A.glog(t.get(r)));return new _(e,0)},mod:function(t){if(this.getLength()-t.getLength()<0)return this;for(var e=A.glog(this.get(0))-A.glog(t.get(0)),n=new Array(this.getLength()),r=0;r<this.getLength();r++)n[r]=this.get(r);for(var i=0;i<t.getLength();i++)n[i]^=A.gexp(A.glog(t.get(i))+e);return new _(n,0).mod(t)}};x.exports=_});var F=E((B1,J)=>{J.exports={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7}});var Z=E((L1,W)=>{var g=N(),V=b(),u1=I(),T=F(),f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(t){for(var e=t<<10;f.getBCHDigit(e)-f.getBCHDigit(f.G15)>=0;)e^=f.G15<<f.getBCHDigit(e)-f.getBCHDigit(f.G15);return(t<<10|e)^f.G15_MASK},getBCHTypeNumber:function(t){for(var e=t<<12;f.getBCHDigit(e)-f.getBCHDigit(f.G18)>=0;)e^=f.G18<<f.getBCHDigit(e)-f.getBCHDigit(f.G18);return t<<12|e},getBCHDigit:function(t){for(var e=0;t!==0;)e++,t>>>=1;return e},getPatternPosition:function(t){return f.PATTERN_POSITION_TABLE[t-1]},getMask:function(t,e,n){switch(t){case T.PATTERN000:return(e+n)%2===0;case T.PATTERN001:return e%2===0;case T.PATTERN010:return n%3===0;case T.PATTERN011:return(e+n)%3===0;case T.PATTERN100:return(Math.floor(e/2)+Math.floor(n/3))%2===0;case T.PATTERN101:return e*n%2+e*n%3===0;case T.PATTERN110:return(e*n%2+e*n%3)%2===0;case T.PATTERN111:return(e*n%3+(e+n)%2)%2===0;default:throw new Error("bad maskPattern:"+t)}},getErrorCorrectPolynomial:function(t){for(var e=new V([1],0),n=0;n<t;n++)e=e.multiply(new V([1,u1.gexp(n)],0));return e},getLengthInBits:function(t,e){if(1<=e&&e<10)switch(t){case g.MODE_NUMBER:return 10;case g.MODE_ALPHA_NUM:return 9;case g.MODE_8BIT_BYTE:return 8;case g.MODE_KANJI:return 8;default:throw new Error("mode:"+t)}else if(e<27)switch(t){case g.MODE_NUMBER:return 12;case g.MODE_ALPHA_NUM:return 11;case g.MODE_8BIT_BYTE:return 16;case g.MODE_KANJI:return 10;default:throw new Error("mode:"+t)}else if(e<41)switch(t){case g.MODE_NUMBER:return 14;case g.MODE_ALPHA_NUM:return 13;case g.MODE_8BIT_BYTE:return 16;case g.MODE_KANJI:return 12;default:throw new Error("mode:"+t)}else throw new Error("type:"+e)},getLostPoint:function(t){var e=t.getModuleCount(),n=0,r=0,i=0;for(r=0;r<e;r++)for(i=0;i<e;i++){for(var o=0,a=t.isDark(r,i),s=-1;s<=1;s++)if(!(r+s<0||e<=r+s))for(var u=-1;u<=1;u++)i+u<0||e<=i+u||s===0&&u===0||a===t.isDark(r+s,i+u)&&o++;o>5&&(n+=3+o-5)}for(r=0;r<e-1;r++)for(i=0;i<e-1;i++){var l=0;t.isDark(r,i)&&l++,t.isDark(r+1,i)&&l++,t.isDark(r,i+1)&&l++,t.isDark(r+1,i+1)&&l++,(l===0||l===4)&&(n+=3)}for(r=0;r<e;r++)for(i=0;i<e-6;i++)t.isDark(r,i)&&!t.isDark(r,i+1)&&t.isDark(r,i+2)&&t.isDark(r,i+3)&&t.isDark(r,i+4)&&!t.isDark(r,i+5)&&t.isDark(r,i+6)&&(n+=40);for(i=0;i<e;i++)for(r=0;r<e-6;r++)t.isDark(r,i)&&!t.isDark(r+1,i)&&t.isDark(r+2,i)&&t.isDark(r+3,i)&&t.isDark(r+4,i)&&!t.isDark(r+5,i)&&t.isDark(r+6,i)&&(n+=40);var L=0;for(i=0;i<e;i++)for(r=0;r<e;r++)t.isDark(r,i)&&L++;var p=Math.abs(100*L/e/e-50)/5;return n+=p*10,n}};W.exports=f});var O=E((A1,$)=>{$.exports={L:1,M:0,Q:3,H:2}});var q=E((p1,z)=>{var c=O();function m(t,e){this.totalCount=t,this.dataCount=e}m.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]];m.getRSBlocks=function(t,e){var n=m.getRsBlockTable(t,e);if(n===void 0)throw new Error("bad rs block @ typeNumber:"+t+"/errorCorrectLevel:"+e);for(var r=n.length/3,i=[],o=0;o<r;o++)for(var a=n[o*3+0],s=n[o*3+1],u=n[o*3+2],l=0;l<a;l++)i.push(new m(s,u));return i};m.getRsBlockTable=function(t,e){switch(e){case c.L:return m.RS_BLOCK_TABLE[(t-1)*4+0];case c.M:return m.RS_BLOCK_TABLE[(t-1)*4+1];case c.Q:return m.RS_BLOCK_TABLE[(t-1)*4+2];case c.H:return m.RS_BLOCK_TABLE[(t-1)*4+3];default:return}};z.exports=m});var e1=E((P1,t1)=>{function j(){this.buffer=[],this.length=0}j.prototype={get:function(t){var e=Math.floor(t/8);return(this.buffer[e]>>>7-t%8&1)==1},put:function(t,e){for(var n=0;n<e;n++)this.putBit((t>>>e-n-1&1)==1)},getLengthInBits:function(){return this.length},putBit:function(t){var e=Math.floor(this.length/8);this.buffer.length<=e&&this.buffer.push(0),t&&(this.buffer[e]|=128>>>this.length%8),this.length++}};t1.exports=j});var a1=E((D1,i1)=>{var h1=X(),B=Z(),f1=b(),r1=q(),n1=e1();function d(t,e){this.typeNumber=t,this.errorCorrectLevel=e,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}d.prototype={addData:function(t){var e=new h1(t);this.dataList.push(e),this.dataCache=null},isDark:function(t,e){if(t<0||this.moduleCount<=t||e<0||this.moduleCount<=e)throw new Error(t+","+e);return this.modules[t][e]},getModuleCount:function(){return this.moduleCount},make:function(){if(this.typeNumber<1){var t=1;for(t=1;t<40;t++){for(var e=r1.getRSBlocks(t,this.errorCorrectLevel),n=new n1,r=0,i=0;i<e.length;i++)r+=e[i].dataCount;for(var o=0;o<this.dataList.length;o++){var a=this.dataList[o];n.put(a.mode,4),n.put(a.getLength(),B.getLengthInBits(a.mode,t)),a.write(n)}if(n.getLengthInBits()<=r*8)break}this.typeNumber=t}this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(t,e){this.moduleCount=this.typeNumber*4+17,this.modules=new Array(this.moduleCount);for(var n=0;n<this.moduleCount;n++){this.modules[n]=new Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++)this.modules[n][r]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(t,e),this.typeNumber>=7&&this.setupTypeNumber(t),this.dataCache===null&&(this.dataCache=d.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,e)},setupPositionProbePattern:function(t,e){for(var n=-1;n<=7;n++)if(!(t+n<=-1||this.moduleCount<=t+n))for(var r=-1;r<=7;r++)e+r<=-1||this.moduleCount<=e+r||(0<=n&&n<=6&&(r===0||r===6)||0<=r&&r<=6&&(n===0||n===6)||2<=n&&n<=4&&2<=r&&r<=4?this.modules[t+n][e+r]=!0:this.modules[t+n][e+r]=!1)},getBestMaskPattern:function(){for(var t=0,e=0,n=0;n<8;n++){this.makeImpl(!0,n);var r=B.getLostPoint(this);(n===0||t>r)&&(t=r,e=n)}return e},createMovieClip:function(t,e,n){var r=t.createEmptyMovieClip(e,n),i=1;this.make();for(var o=0;o<this.modules.length;o++)for(var a=o*i,s=0;s<this.modules[o].length;s++){var u=s*i,l=this.modules[o][s];l&&(r.beginFill(0,100),r.moveTo(u,a),r.lineTo(u+i,a),r.lineTo(u+i,a+i),r.lineTo(u,a+i),r.endFill())}return r},setupTimingPattern:function(){for(var t=8;t<this.moduleCount-8;t++)this.modules[t][6]===null&&(this.modules[t][6]=t%2===0);for(var e=8;e<this.moduleCount-8;e++)this.modules[6][e]===null&&(this.modules[6][e]=e%2===0)},setupPositionAdjustPattern:function(){for(var t=B.getPatternPosition(this.typeNumber),e=0;e<t.length;e++)for(var n=0;n<t.length;n++){var r=t[e],i=t[n];if(this.modules[r][i]===null)for(var o=-2;o<=2;o++)for(var a=-2;a<=2;a++)Math.abs(o)===2||Math.abs(a)===2||o===0&&a===0?this.modules[r+o][i+a]=!0:this.modules[r+o][i+a]=!1}},setupTypeNumber:function(t){for(var e=B.getBCHTypeNumber(this.typeNumber),n,r=0;r<18;r++)n=!t&&(e>>r&1)===1,this.modules[Math.floor(r/3)][r%3+this.moduleCount-8-3]=n;for(var i=0;i<18;i++)n=!t&&(e>>i&1)===1,this.modules[i%3+this.moduleCount-8-3][Math.floor(i/3)]=n},setupTypeInfo:function(t,e){for(var n=this.errorCorrectLevel<<3|e,r=B.getBCHTypeInfo(n),i,o=0;o<15;o++)i=!t&&(r>>o&1)===1,o<6?this.modules[o][8]=i:o<8?this.modules[o+1][8]=i:this.modules[this.moduleCount-15+o][8]=i;for(var a=0;a<15;a++)i=!t&&(r>>a&1)===1,a<8?this.modules[8][this.moduleCount-a-1]=i:a<9?this.modules[8][15-a-1+1]=i:this.modules[8][15-a-1]=i;this.modules[this.moduleCount-8][8]=!t},mapData:function(t,e){for(var n=-1,r=this.moduleCount-1,i=7,o=0,a=this.moduleCount-1;a>0;a-=2)for(a===6&&a--;;){for(var s=0;s<2;s++)if(this.modules[r][a-s]===null){var u=!1;o<t.length&&(u=(t[o]>>>i&1)===1);var l=B.getMask(e,r,a-s);l&&(u=!u),this.modules[r][a-s]=u,i--,i===-1&&(o++,i=7)}if(r+=n,r<0||this.moduleCount<=r){r-=n,n=-n;break}}}};d.PAD0=236;d.PAD1=17;d.createData=function(t,e,n){for(var r=r1.getRSBlocks(t,e),i=new n1,o=0;o<n.length;o++){var a=n[o];i.put(a.mode,4),i.put(a.getLength(),B.getLengthInBits(a.mode,t)),a.write(i)}for(var s=0,u=0;u<r.length;u++)s+=r[u].dataCount;if(i.getLengthInBits()>s*8)throw new Error("code length overflow. ("+i.getLengthInBits()+">"+s*8+")");for(i.getLengthInBits()+4<=s*8&&i.put(0,4);i.getLengthInBits()%8!==0;)i.putBit(!1);for(;!(i.getLengthInBits()>=s*8||(i.put(d.PAD0,8),i.getLengthInBits()>=s*8));)i.put(d.PAD1,8);return d.createBytes(i,r)};d.createBytes=function(t,e){for(var n=0,r=0,i=0,o=new Array(e.length),a=new Array(e.length),s=0;s<e.length;s++){var u=e[s].dataCount,l=e[s].totalCount-u;r=Math.max(r,u),i=Math.max(i,l),o[s]=new Array(u);for(var L=0;L<o[s].length;L++)o[s][L]=255&t.buffer[L+n];n+=u;var p=B.getErrorCorrectPolynomial(l),o1=new f1(o[s],p.getLength()-1),y=o1.mod(p);a[s]=new Array(p.getLength()-1);for(var P=0;P<a[s].length;P++){var Q=P+y.getLength()-a[s].length;a[s][P]=Q>=0?y.get(Q):0}}for(var H=0,C=0;C<e.length;C++)H+=e[C].totalCount;for(var k=new Array(H),S=0,D=0;D<r;D++)for(var M=0;M<e.length;M++)D<o[M].length&&(k[S++]=o[M][D]);for(var w=0;w<i;w++)for(var R=0;R<e.length;R++)w<a[R].length&&(k[S++]=a[R][w]);return k};i1.exports=d});var l1=a1(),g1=O();window.KockBotQR={svg:function(t){var e=new l1(-1,g1.M);e.addData(String(t)),e.make();for(var n=e.getModuleCount(),r=4,i=n+r*2,o="",a=0;a<n;a++)for(var s=0;s<n;s++)e.isDark(a,s)&&(o+="M"+(s+r)+" "+(a+r)+"h1v1h-1z");return'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+i+" "+i+'" shape-rendering="crispEdges"><rect width="'+i+'" height="'+i+'" fill="#fff"/><path d="'+o+'" fill="#000"/></svg>'}};})();</script>
+<header class="hero">
+  <svg class="garland" id="garland" viewBox="0 0 480 50" preserveAspectRatio="xMidYMin slice" aria-hidden="true"></svg>
+  <div class="hero-inner">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 8h8l-1 5a2 2 0 0 1-2 1.5h-2a2 2 0 0 1-2-1.5z" fill="var(--card)" stroke="none"/>
+        <path d="M12 13c-1-3 1-6 3-9"/>
+        <path d="M13 7c2-1 3-3 3-3s-1 2-2 3z" fill="currentColor"/>
+        <path d="M11.5 9.5c-2-1-4-1-4-1s2 1 3 2z" fill="currentColor"/>
+        <path d="M14 10c1.5.5 3 2 3 2s-1.5-1-2.5-1.5z" fill="currentColor"/>
+        <path d="M7 3h10l-2 10a2 2 0 0 1-2 1.5h-2a2 2 0 0 1-2-1.5L7 3z"/>
+        <path d="M12 14.5v6.5M9 21h6"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Beskapp</h1>
+      <p class="sub">Betygsätt kvällens droppar</p>
+    </div>
+  </div>
+</header>
 
-    <script type="module" src="kockbot-app.js?v=290392519f"></script>
+<div class="app">
+  <main>
+    <!-- Vy: Start, välj betygssystem -->
+    <section id="view-start" class="stack" hidden>
+      <h2 class="start-title">Hur vill ni betygsätta?</h2>
+      <div class="stack" id="systems"></div>
+      <aside class="card fact" aria-label="Snapsfakta">
+        <div class="fact-head">
+          <strong>Visste du att…</strong>
+          <button type="button" class="pill-btn next-fact">Nästa</button>
+        </div>
+        <p class="fact-text"></p>
+      </aside>
+    </section>
+
+    <!-- Vy: Inställning, en gång per provning -->
+    <section id="view-setup" class="stack" hidden>
+      <button type="button" class="back" id="setupBack"></button>
+      <div class="card setup-sys" id="setupSys"></div>
+
+      <div class="card field" id="field-households">
+        <label for="households" class="card-title">Hur många hushåll deltar?</label>
+        <div class="stepper big">
+          <button type="button" class="step" data-step="-1" aria-label="Ett hushåll färre">−</button>
+          <input type="text" id="households" inputmode="numeric" maxlength="2" placeholder="?" autocomplete="off">
+          <button type="button" class="step" data-step="1" aria-label="Ett hushåll till">+</button>
+        </div>
+        <p class="hint" id="hhHint"></p>
+      </div>
+
+      <div class="card field" id="field-name">
+        <label for="name" class="card-title">Vilket hushåll är ni?</label>
+        <input type="text" id="name" maxlength="40" placeholder="Familjen Svensson" autocapitalize="words" enterkeyhint="go" spellcheck="false" autocomplete="off">
+        <div class="chips" id="nameChips"></div>
+        <p class="hint" id="nameHint" hidden>Byter ni namn följer era omdömen med.</p>
+      </div>
+
+      <p class="error" id="setupError" role="alert" hidden></p>
+      <button type="button" class="btn btn-go" id="setupGo">Börja betygsätta</button>
+    </section>
+
+    <!-- Vy: Betygsätt -->
+    <section id="view-rate" class="stack" role="tabpanel" aria-labelledby="tab-rate" hidden>
+      <div class="card who" id="who"></div>
+
+      <div id="rateForm" class="stack">
+        <div class="card" id="bottleCard">
+          <span class="card-title" id="bottleTitle">Vilken flaska?</span>
+          <div class="bottles" id="bottles" role="group" aria-labelledby="bottleTitle"></div>
+          <p class="hint" id="bottleHint" hidden></p>
+        </div>
+
+        <div id="scales" class="stack"></div>
+
+        <div class="card field">
+          <label for="comment" class="card-title">Noteringar <span class="meta">(valfritt)</span></label>
+          <textarea id="comment" rows="2" maxlength="300" placeholder="Blommig doft, lång eftersmak"></textarea>
+        </div>
+
+        <p class="error" id="error" role="alert" hidden></p>
+        <button type="button" class="btn btn-go" id="saveBtn"><span id="saveText">Spara</span><span class="live" id="liveAvg" hidden></span></button>
+      </div>
+
+      <div class="card saved" id="savedView" hidden></div>
+      <aside class="card fact" id="savedFact" aria-label="Snapsfakta" hidden>
+        <div class="fact-head">
+          <strong>Medan ni väntar på nästa glas…</strong>
+          <button type="button" class="pill-btn next-fact">Nästa</button>
+        </div>
+        <p class="fact-text"></p>
+      </aside>
+    </section>
+
+    <!-- Vy: Topplista -->
+    <section id="view-board" class="stack" role="tabpanel" aria-labelledby="tab-board" hidden>
+      <div class="board-head">
+        <h2>Topplista</h2>
+        <span class="meta" id="boardMeta"></span>
+      </div>
+
+      <div class="card collect tone-pink" id="collect">
+        <div class="collect-head">
+          <span class="crit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg></span>
+          <div><b>Samla ihop allas resultat</b><p id="collectInfo"></p></div>
+        </div>
+        <div class="row">
+          <button type="button" class="btn btn-go" id="scanBtn">Skanna QR-koder</button>
+          <button type="button" class="btn btn-plain" id="showQrBtn">Visa vår QR-kod</button>
+        </div>
+      </div>
+
+      <div class="card empty" id="empty">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-2 10a2 2 0 0 1-2 1.5h-2a2 2 0 0 1-2-1.5L7 3zM12 14.5v6.5M9 21h6"/></svg>
+        </div>
+        <p>Inga omdömen än. När ni har betygsatt första flaskan hamnar den här.</p>
+        <button type="button" class="btn btn-go" data-goto="rate">Betygsätt en flaska</button>
+      </div>
+
+      <div class="podium" id="podium" hidden></div>
+      <h3 class="list-title" id="listTitle" hidden>Alla flaskor</h3>
+      <ol class="board" id="board"></ol>
+
+      <div class="row" id="boardActions">
+        <button type="button" class="btn btn-blue" id="shareBtn">Dela listan</button>
+        <button type="button" class="btn btn-outline-danger" id="clearBtn">Ny provning</button>
+      </div>
+    </section>
+  </main>
+
+  <button type="button" class="install-link" id="installLink" hidden>Installera Beskapp som app</button>
+</div>
+
+<nav class="tabs" id="tabs" aria-label="Vyer" hidden>
+  <div class="tabs-inner" role="tablist">
+    <button type="button" class="tab" role="tab" id="tab-rate" aria-controls="view-rate" aria-selected="true" data-goto="rate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10l-2 10a2 2 0 0 1-2 1.5h-2a2 2 0 0 1-2-1.5L7 3zM12 14.5v6.5M9 21h6M8 8h8"/></svg>
+      Betygsätt
+    </button>
+    <button type="button" class="tab" role="tab" id="tab-board" aria-controls="view-board" aria-selected="false" data-goto="board">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18M9 20V7h6v13M4 20v-8h5M15 20v-5h5v5"/></svg>
+      Topplista <span class="count" id="tabCount" hidden></span>
+    </button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button type="button" id="toastBtn" hidden></button>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form method="dialog">
+    <h3 id="dlgTitle"></h3>
+    <p id="dlgText"></p>
+    <textarea id="dlgPre" readonly hidden></textarea>
+    <div class="row">
+      <button value="cancel" class="btn btn-plain" id="dlgCancel">Avbryt</button>
+      <button value="ok" class="btn btn-go" id="dlgOk">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="installDlg" class="sheet" aria-labelledby="installTitle" aria-describedby="installLead">
+  <form method="dialog">
+    <div class="sheet-head" tabindex="-1" autofocus>
+      <img src="icons/icon-192.png" alt="" width="76" height="76">
+      <div>
+        <h3 id="installTitle">Installera Beskapp</h3>
+        <p id="installLead">Då ligger den bland dina appar, öppnas i helskärm och fungerar utan internet.</p>
+      </div>
+    </div>
+    <ol class="steps" id="installSteps" hidden></ol>
+    <p class="step-note" id="installNote" hidden></p>
+    <div class="row">
+      <button type="button" class="btn btn-plain" id="installLater">Inte nu</button>
+      <button type="button" class="btn btn-go" id="installGo">Installera</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="qrDlg" class="sheet" aria-labelledby="qrTitle">
+  <form method="dialog">
+    <h3 id="qrTitle">Er QR-kod</h3>
+    <p id="qrLead"></p>
+    <div class="qr-box" id="qrBox"></div>
+    <p class="qr-note" id="qrNote"></p>
+    <div class="row">
+      <button type="button" class="btn btn-plain" id="qrShare">Dela som text</button>
+      <button value="ok" class="btn btn-go">Klar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="scanDlg" class="sheet" aria-labelledby="scanTitle">
+  <form method="dialog">
+    <h3 id="scanTitle">Skanna QR-koder</h3>
+    <div class="scan-view" id="scanView"><video id="scanVideo" playsinline muted autoplay></video></div>
+    <p class="scan-status" id="scanStatus" role="status" aria-live="polite"></p>
+    <div class="collected" id="collected"></div>
+    <div class="paste-box" id="pasteBox" hidden>
+      <label for="pasteText" class="card-title">Klistra in en kod</label>
+      <textarea id="pasteText" rows="3" placeholder="BESKAPP1:…" spellcheck="false" autocomplete="off"></textarea>
+      <button type="button" class="btn btn-blue btn-small" id="pasteGo">Lägg till</button>
+    </div>
+    <div class="row">
+      <button type="button" class="btn btn-plain" id="pasteToggle">Klistra in kod</button>
+      <button value="ok" class="btn btn-go">Klar</button>
+    </div>
+  </form>
+</dialog>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- Inställningar ---------- */
+  const STORE_KEY = 'beskapp.v3';
+  const MAX_HOUSEHOLDS = 30;
+  const ICONS = {
+    drop: '<path d="M12 3.5s6 6.3 6 10.5a6 6 0 0 1-12 0c0-4.2 6-10.5 6-10.5z"/>',
+    waves: '<path d="M4 8c2.2-2 3.8 2 6 0s3.8 2 6 0 3.8 2 4 0M4 13c2.2-2 3.8 2 6 0s3.8 2 6 0 3.8 2 4 0M4 18c2.2-2 3.8 2 6 0s3.8 2 6 0 3.8 2 4 0"/>',
+    glass: '<path d="M7 3h10l-2 10a2 2 0 0 1-2 1.5h-2a2 2 0 0 1-2-1.5L7 3zM12 14.5v6.5M9 21h6"/>',
+    star: '<path d="M12 3.5l2.6 5.3 5.8.9-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.9z"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5c0 2 1.3 3.6 3 3.9M16 6h3c0 2-1.3 3.6-3 3.9M12 13v3M9.5 16h5l.5 4H9z"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    up: '<path d="M6 15l6-6 6 6"/>',
+    down: '<path d="M6 9l6 6 6-6"/>',
+    left: '<path d="M15 6l-6 6 6 6"/>',
+    right: '<path d="M9 6l6 6-6 6"/>'
+  };
+  const FSD = [
+    { key: 'color', label: 'Färg', tone: 'yellow', icon: 'drop' },
+    { key: 'smell', label: 'Doft', tone: 'green', icon: 'waves' },
+    { key: 'taste', label: 'Smak', tone: 'red', icon: 'glass' }
+  ];
+  const MODES = {
+    simple: {
+      name: 'Klassisk', tone: 'blue', icon: 'star',
+      desc: 'Ett betyg från 1 till 5 per flaska',
+      rule: 'Ge varje flaska ett betyg från 1 till 5. Snittet avgör.',
+      crits: [{ key: 'score', label: 'Betyg', tone: 'blue', icon: 'star' }]
+    },
+    categories: {
+      name: 'FSD', tone: 'green', icon: 'waves',
+      desc: 'Färg, doft och smak, 1 till 5 var',
+      rule: 'Ge varje flaska ett betyg från 1 till 5 för färg, doft och smak. Snittet avgör.',
+      crits: FSD
+    },
+    ranking: {
+      name: 'Rankning', tone: 'yellow', icon: 'trophy',
+      desc: 'Rangordna flaskorna, bäst överst',
+      rule: 'Placera varje flaska i er egen lista. Bästa flaskan får flest poäng och poängen läggs ihop.',
+      crits: []
+    }
+  };
+  const MODE_KEYS = Object.keys(MODES);
+  const WORDS = ['', 'Riktigt dålig', 'Underkänd', 'Okej', 'God!', 'Fantastisk!'];
+
+  const FACTS = [
+    'Malört användes förr för att hålla mal borta från kläderna. Kanske är det därifrån namnet kommer.',
+    'De första kända uppgifterna om brännvin i Sverige är från 1467. Till en början användes spriten till att tillverka krut.',
+    'På 1500-talet började man krydda brännvinet, främst av medicinska skäl. Örterna ansågs kunna skydda mot sjukdomar, till och med pesten.',
+    'Det är det bittra ämnet absintin i malörten som ger besken dess karaktär.',
+    'Absintin smakar bittert redan i extremt låga halter. Ett enda gram skulle i teorin räcka för att göra över 15 000 liter vatten märkbart bittert.',
+    'Förr trodde man på fullaste allvar att en hutt besk på morgonen kunde bota allt från magont till sjösjuka.',
+    'Snapsvisor sjungs inte bara i Sverige. De hör till festerna även i Norge, Danmark och bland finlandssvenskar.',
+    'Besk dricks framför allt i södra och sydvästra Sverige. Förr bjöd man alltid gästerna på en besk när de kom på besök.',
+    'Bäska Droppar, landets mest kända besk, tillverkas i dag i Sundsvall, långt från beskens kärnland i söder.',
+    'Namnet akvavit kommer från latinets aqua vitae, som betyder livets vatten.',
+    'Ordet vermouth kommer från tyskans Wermut, som betyder just malört.',
+    'Carl Jeppson, en svensk invandrare i Chicago, sålde sin malört dörr till dörr som medicin på 1920-talet, under förbudstiden. I dag dricks Jeppson’s Malört ofta som ett mandomsprov.',
+    'Malörtens latinska namn är Artemisia absinthium. Släktnamnet brukar härledas till gudinnan Artemis, eller till drottning Artemisia av Karien.',
+    'Många plockar malörten kring Bartolomeus den 24 augusti, när de små gula blommorna har slagit ut.',
+    'Bäsk är en äldre stavning av besk, ett ord som helt enkelt betyder bitter.',
+    'Besk hör traditionellt ihop med fet mat. På ett skånskt ålagille är den nästan ett måste.',
+    'Låt inte malörten dra för länge. Många recept säger bara några dagar, annars blir snapsen odrickbart besk.',
+    'Engelskans wormwood kommer från fornengelskans wermod. Ordet worm smög sig in först senare, eftersom växten användes mot inälvsmask.',
+    'I England drack man förr purl, eller wormwood ale: öl som fått dra med malörtstoppar.',
+    'I Uppenbarelseboken faller en stjärna som heter Malört ner på jorden och gör en tredjedel av vattnet bittert.',
+    'Linné försvarade den bittra smaken i Urban Hjärnes berömda droppar med att de annars inte vore någon medicin.',
+    'Malört innehåller tujon, samma ämne som på 1800-talet påstods ge absintdrickare hallucinationer.',
+    'Kryddor och lite socker hjälpte förr till att dölja felsmakerna i dåtidens brännvin.',
+    'Enligt gammal folktro skyddade torkad malört över dörren hemmet mot onda andar.',
+    'Förr blandade man ibland malört i bläcket, så att möss inte skulle äta upp de skrivna sidorna.',
+    'Svenskar har dragit malört på brännvin sedan 1400-talet, och besken klarade sig genom nykterhetsrörelsens år delvis tack vare kräftskivorna.'
+  ];
+
+  const svg = (inner, cls = '') => `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+  const ICON_EDIT = svg('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>');
+  const ICON_DEL = svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>');
+  const ICON_CHEV = svg(ICONS.down, 'chev');
+  const CROWN = '<svg class="crown" viewBox="0 0 38 26" aria-hidden="true"><path d="M3 23 L4.5 6 L12 13 L19 3 L26 13 L33.5 6 L35 23 Z" fill="var(--yellow)" stroke="var(--outline)" stroke-width="2.5" stroke-linejoin="round"/><circle cx="19" cy="17" r="2.6" fill="var(--red)" stroke="var(--outline)" stroke-width="1.6"/></svg>';
+
+  /* ---------- Hjälpfunktioner ---------- */
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const tidy = (s) => String(s).trim().replace(/\s+/g, ' ');
+  const keyOf = (s) => tidy(s).toLocaleLowerCase('sv');
+  const collator = new Intl.Collator('sv', { numeric: true, sensitivity: 'base' });
+  const fmt = (n) => n.toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const bottleLabel = (b) => /^\d+$/.test(b) ? 'Flaska ' + b : b;          // "3" blir "Flaska 3"
+  const bottleInText = (b) => bottleLabel(b).replace(/^Flaska/, 'flaska');  // mitt i en mening
+  const genitive = (name) => /[sxz]$/i.test(name) ? name : name + 's';
+  const joinSv = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' och ' + a[a.length - 1];
+  const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  /* ---------- Tillstånd och lagring ---------- */
+  // setup: { mode, households, name } när en provning pågår, annars null
+  let state = { ratings: [], setup: null, lastName: '', lastHouseholds: 0 };
+  let view = 'start';
+  let setupMode = null, editingSetup = false;
+  let cur = null;                                   // vald flaska
+  const scores = { score: 0, color: 0, smell: 0, taste: 0 };
+  let rankPos = 0;                                  // vald flaskas plats i rangordningen
+  const expanded = new Set();
+  let storageWarned = false;
+
+  const value = (r) => r.mode === 'categories' ? (r.color + r.smell + r.taste) / 3 : r.score;
+
+  function isValidRating(r) {
+    if (!r || typeof r.id !== 'string' || !tidy(r.name || '') || !tidy(r.bottle || '') || !MODES[r.mode]) return false;
+    if (r.mode === 'categories') return FSD.every((c) => isInt(r[c.key], 1, 5));
+    if (r.mode === 'simple') return isInt(r.score, 1, 5);
+    return isInt(r.score, 1, 99);
+  }
+
+  // Version 1 av Beskapp (nycklarna beskaRatings, beskaMode, beskaParticipants)
+  function readV1() {
+    try {
+      const old = JSON.parse(localStorage.getItem('beskaRatings') || 'null');
+      if (!Array.isArray(old)) return null;
+      const ratings = old.map((o) => {
+        const r = { id: String(o.id), mode: MODES[o.mode] ? o.mode : 'simple', name: tidy(o.name || ''), bottle: tidy(o.bottle || ''), comment: tidy(o.comment || ''), at: typeof o.id === 'number' ? o.id : Date.now() };
+        if (r.mode === 'categories' && o.details) { r.color = Number(o.details.color); r.smell = Number(o.details.smell); r.taste = Number(o.details.taste); }
+        else r.score = Math.round(Number(o.score));
+        return r;
+      });
+      return { ratings, lastName: '', mode: localStorage.getItem('beskaMode'), households: parseInt(localStorage.getItem('beskaParticipants'), 10) };
+    } catch (e) { return null; }
+  }
+
+  // Version 2 (ett system i taget valt högst upp) blir en pågående provning
+  function fromV2(d) {
+    const ratings = (Array.isArray(d.ratings) ? d.ratings : []).filter(isValidRating);
+    const hh = isInt(d.households, 1, MAX_HOUSEHOLDS) ? d.households : 0;
+    const out = { ratings, setup: null, lastName: typeof d.lastName === 'string' ? d.lastName : '', lastHouseholds: hh };
+    if (!ratings.length) return out;
+    const count = (m) => ratings.filter((r) => r.mode === m).length;
+    const mode = MODES[d.mode] && count(d.mode) ? d.mode : MODE_KEYS.reduce((a, b) => (count(b) > count(a) ? b : a));
+    const inMode = ratings.filter((r) => r.mode === mode);
+    const nums = inMode.map((r) => (/^\d+$/.test(r.bottle) ? Number(r.bottle) : 0));
+    const distinct = new Set(inMode.map((r) => keyOf(r.bottle))).size;
+    const names = new Map();
+    inMode.forEach((r) => { const k = keyOf(r.name); const e = names.get(k) || { name: r.name, n: 0 }; e.n++; names.set(k, e); });
+    const name = out.lastName && names.has(keyOf(out.lastName)) ? names.get(keyOf(out.lastName)).name
+      : [...names.values()].sort((a, b) => b.n - a.n)[0].name;
+    out.setup = { mode, households: Math.min(MAX_HOUSEHOLDS, Math.max(hh, distinct, ...nums, 1)), name };
+    return out;
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (d && Array.isArray(d.ratings)) {
+        const s = d.setup;
+        state = {
+          ratings: d.ratings.filter(isValidRating),
+          setup: s && MODES[s.mode] && isInt(s.households, 1, MAX_HOUSEHOLDS) && tidy(s.name || '') ? { mode: s.mode, households: s.households, name: tidy(s.name) } : null,
+          lastName: typeof d.lastName === 'string' ? d.lastName : '',
+          lastHouseholds: isInt(d.lastHouseholds, 0, MAX_HOUSEHOLDS) ? d.lastHouseholds : 0
+        };
+        return;
+      }
+    } catch (e) { /* trasig data: prova äldre versioner */ }
+    let older = null;
+    try { older = JSON.parse(localStorage.getItem('beskapp.v2') || 'null'); } catch (e) { /* ingen v2 */ }
+    if (!older || !Array.isArray(older.ratings)) older = readV1();
+    if (older) { state = fromV2(older); persist(); }
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    } catch (e) {
+      if (!storageWarned) {
+        storageWarned = true;
+        setTimeout(() => toast('Webbläsaren sparar inte. Omdömena försvinner om sidan laddas om.'), 2800);
+      }
+    }
+  }
+
+  /* ---------- Den pågående provningen ---------- */
+  const S = () => state.setup;
+  const mode = () => (S() ? S().mode : 'simple');
+  const N = () => (S() ? S().households : 0);
+  const me = () => (S() ? keyOf(S().name) : '');
+  const isRanking = () => mode() === 'ranking';
+  const crits = () => MODES[mode()].crits;
+  const modeRatings = (m = mode()) => state.ratings.filter((r) => r.mode === m);
+  const mine = () => modeRatings().filter((r) => keyOf(r.name) === me());
+  const findMine = (b) => (b ? mine().find((r) => keyOf(r.bottle) === keyOf(b)) : null);
+
+  // Flaskorna 1 till antalet hushåll, plus flaskor med andra namn från äldre omdömen
+  function bottles() {
+    const list = Array.from({ length: N() }, (_, i) => String(i + 1));
+    const keys = new Set(list);
+    modeRatings().forEach((r) => { const k = keyOf(r.bottle); if (!keys.has(k)) { keys.add(k); list.push(r.bottle); } });
+    return list;
+  }
+  const doneKeys = () => new Set(mine().map((r) => keyOf(r.bottle)));
+  const doneCount = () => { const d = doneKeys(); return bottles().filter((b) => d.has(keyOf(b))).length; };
+
+  function nextBottle(after) {
+    const list = bottles(), done = doneKeys();
+    const start = after ? list.findIndex((b) => keyOf(b) === keyOf(after)) + 1 : 0;
+    for (let i = 0; i < list.length; i++) {
+      const b = list[(start + i) % list.length];
+      if (!done.has(keyOf(b))) return b;
+    }
+    return null;
+  }
+
+  // Rangordning: hushållets placerade flaskor, bäst först, utom den valda
+  function rankedOthers() {
+    return mine()
+      .filter((r) => keyOf(r.bottle) !== keyOf(cur || ''))
+      .sort((a, b) => b.score - a.score || collator.compare(a.bottle, b.bottle))
+      .map((r) => r.bottle);
+  }
+  const rankTop = (len) => Math.max(N(), len);
+
+  // Poäng efter placering: bästa flaskan får lika många poäng som antalet hushåll
+  function recomputeRanking(nameKey) {
+    const keys = nameKey ? [nameKey] : [...new Set(modeRatings('ranking').map((r) => keyOf(r.name)))];
+    keys.forEach((k) => {
+      const rs = state.ratings.filter((r) => r.mode === 'ranking' && keyOf(r.name) === k).sort((a, b) => b.score - a.score);
+      const top = Math.max(N(), rs.length);
+      rs.forEach((r, i) => { r.score = top - i; });
+    });
+  }
+
+  /* ---------- Topplistans beräkningar ---------- */
+  function bottleList(m = mode()) {
+    const map = new Map();
+    for (const r of modeRatings(m)) {
+      const k = keyOf(r.bottle);
+      if (!map.has(k)) map.set(k, { key: k, name: r.bottle, ratings: [] });
+      map.get(k).ratings.push(r);
+    }
+    const list = [...map.values()].map((b) => {
+      const n = b.ratings.length;
+      const sum = b.ratings.reduce((s, r) => s + value(r), 0);
+      const total = m === 'ranking' ? sum : sum / n;      // rankning: poängen läggs ihop
+      const avgs = {};
+      if (m === 'categories') FSD.forEach((c) => { avgs[c.key] = b.ratings.reduce((s, r) => s + r[c.key], 0) / n; });
+      const ratings = [...b.ratings].sort((x, y) => value(y) - value(x) || collator.compare(x.name, y.name));
+      return { key: b.key, name: b.name, ratings, n, m: avgs, total };
+    });
+    list.sort((a, b) => b.total - a.total || b.n - a.n || collator.compare(a.name, b.name));
+    let prev = null, rank = 0;
+    list.forEach((b, i) => {
+      const t = Math.round(b.total * 1000);
+      if (t !== prev) { rank = i + 1; prev = t; }
+      b.rank = rank;
+    });
+    return list;
+  }
+  const fmtTotal = (v) => (isRanking() ? String(Math.round(v)) : fmt(v));
+  const totalUnit = () => (isRanking() ? 'poäng' : 'av 5');
+
+  /* ---------- Konfetti ---------- */
+  const confetti = (() => {
+    const cv = $('#confetti');
+    const ctx = cv.getContext('2d');
+    let parts = [], raf = null;
+    const colors = () => ['--red', '--yellow', '--green', '--blue', '--pink'].map(cssVar);
+    function resize() {
+      const d = window.devicePixelRatio || 1;
+      cv.width = innerWidth * d; cv.height = innerHeight * d;
+      ctx.setTransform(d, 0, 0, d, 0, 0);
+    }
+    function add(p) { parts.push(p); if (!raf) raf = requestAnimationFrame(tick); }
+    function piece(x, y, vx, vy, g, cols) {
+      return { x, y, vx, vy, g, r: Math.random() * 6, vr: (Math.random() - .5) * .3,
+        w: 6 + Math.random() * 6, h: 9 + Math.random() * 8, c: cols[Math.floor(Math.random() * cols.length)],
+        round: Math.random() < .3, phase: Math.random() * 6, t: 0 };
+    }
+    function burst(x, y, n = 28) {
+      if (reducedMotion()) return;
+      if (!raf) resize();
+      const cols = colors();
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 6;
+        add(piece(x, y, Math.cos(a) * s, Math.sin(a) * s - 4, .32, cols));
+      }
+    }
+    function rain(n = 150) {
+      if (reducedMotion()) return;
+      if (!raf) resize();
+      const cols = colors();
+      for (let i = 0; i < n; i++) {
+        add(piece(Math.random() * innerWidth, -20 - Math.random() * innerHeight * .5, (Math.random() - .5) * 2, 2 + Math.random() * 3, .05, cols));
+      }
+    }
+    function tick() {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      for (const p of parts) {
+        p.t++;
+        p.vx = p.vx * .985 + Math.sin(p.t * .08 + p.phase) * .12;
+        p.vy = Math.min(p.vy + p.g, 6);
+        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.c;
+        if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2); ctx.fill(); }
+        else ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.t * .1 + p.phase)) + 2);
+        ctx.restore();
+      }
+      parts = parts.filter((p) => p.y < innerHeight + 30 && p.t < 600);
+      if (parts.length) raf = requestAnimationFrame(tick);
+      else { raf = null; ctx.clearRect(0, 0, innerWidth, innerHeight); }
+    }
+    return { burst, rain };
+  })();
+
+  /* ---------- Vimplar ---------- */
+  function buildGarland() {
+    const tones = ['--red', '--yellow', '--green', '--blue', '--pink'];
+    const yAt = (x) => { const t = (x + 10) / 500; return 4 + 60 * t * (1 - t); };
+    let out = '<path d="M-10 4 Q240 34 490 4" fill="none" stroke="var(--night-ink)" stroke-opacity=".55" stroke-width="1.5"/>';
+    for (let i = 0, x = 12; x < 480; i++, x += 36) {
+      const y = yAt(x);
+      out += `<path d="M${x - 12} ${y} L${x + 12} ${yAt(x + 12)} L${x} ${y + 26} Z" fill="var(${tones[i % tones.length]})" stroke="var(--outline)" stroke-width="1.5" stroke-linejoin="round"/>`;
+    }
+    $('#garland').innerHTML = out;
+  }
+
+  /* ---------- Vyer ---------- */
+  function show(v) {
+    view = v;
+    ['start', 'setup', 'rate', 'board'].forEach((x) => { $('#view-' + x).hidden = x !== v; });
+    $('#tabs').hidden = !(v === 'rate' || v === 'board');
+    $('#tab-rate').setAttribute('aria-selected', String(v === 'rate'));
+    $('#tab-board').setAttribute('aria-selected', String(v === 'board'));
+    if (v === 'board') renderBoard();
+    if (v === 'start') renderStart();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Start: välj betygssystem ---------- */
+  function renderStart() {
+    $('#systems').innerHTML = MODE_KEYS.map((m) => {
+      const M = MODES[m];
+      return `<button type="button" class="card sys tone-${M.tone}" data-sys="${m}">
+        <span class="crit-icon">${svg(ICONS[M.icon])}</span>
+        <span><b>${M.name}</b><span class="d">${M.desc}</span></span>
+        ${svg(ICONS.right, 'chev-r')}
+      </button>`;
+    }).join('');
+  }
+
+  /* ---------- Inställning ---------- */
+  function openSetup(m, edit) {
+    editingSetup = !!edit;
+    setupMode = edit ? mode() : m;
+    const M = MODES[setupMode];
+    const box = $('#setupSys');
+    box.className = `card setup-sys tone-${M.tone}`;
+    box.innerHTML = `<span class="crit-icon">${svg(ICONS[M.icon])}</span><div><b>${M.name}</b><p>${M.rule}</p></div>`;
+    $('#setupBack').innerHTML = `${svg(ICONS.left)} ${edit ? 'Tillbaka till betygsättningen' : 'Välj ett annat system'}`;
+    $('#households').value = edit ? N() : (state.lastHouseholds || '');
+    $('#name').value = edit ? S().name : state.lastName;
+    $('#setupGo').textContent = edit ? 'Spara ändringar' : 'Börja betygsätta';
+    $('#nameHint').hidden = !edit;
+    hideSetupError();
+    renderHhHint();
+    renderNameChips();
+    show('setup');
+  }
+
+  function renderHhHint() {
+    const n = parseInt($('#households').value, 10);
+    const base = 'Varje hushåll gör en besk, så det blir lika många flaskor.';
+    $('#hhHint').textContent = setupMode === 'ranking' && n > 0
+      ? `${base} Bästa flaskan får ${plural(n, 'poäng', 'poäng')}, nästa ${plural(Math.max(n - 1, 0), 'poäng', 'poäng')} och så vidare.`
+      : base;
+  }
+
+  function setHouseholds(n) {
+    $('#households').value = n ? Math.max(1, Math.min(MAX_HOUSEHOLDS, n)) : '';
+    $('#field-households').classList.remove('invalid');
+    renderHhHint();
+  }
+
+  function renderNameChips() {
+    const seen = new Map();
+    [state.lastName, ...state.ratings.map((r) => r.name)].filter((n) => tidy(n || '')).forEach((n) => { const k = keyOf(n); if (!seen.has(k)) seen.set(k, n); });
+    const nk = keyOf($('#name').value);
+    const names = [...seen.values()];
+    $('#nameChips').innerHTML = names.length && !(names.length === 1 && keyOf(names[0]) === nk)
+      ? names.map((n) => `<button type="button" class="chip" data-name="${esc(n)}" aria-pressed="${keyOf(n) === nk}">${esc(n)}</button>`).join('')
+      : '';
+  }
+
+  function showSetupError(msg, ids) {
+    const e = $('#setupError');
+    e.textContent = msg;
+    e.hidden = false;
+    ids.forEach((id) => $('#field-' + id).classList.add('invalid'));
+  }
+  function hideSetupError() {
+    $('#setupError').hidden = true;
+    document.querySelectorAll('#view-setup .invalid').forEach((el) => el.classList.remove('invalid'));
+  }
+
+  function saveSetup() {
+    hideSetupError();
+    const n = parseInt($('#households').value, 10);
+    const typed = tidy($('#name').value);
+    const existing = state.ratings.map((r) => r.name).find((x) => keyOf(x) === keyOf(typed));
+    const name = existing || typed;
+    const missing = [], ids = [];
+    if (!isInt(n, 1, MAX_HOUSEHOLDS)) { missing.push(`antal hushåll (1–${MAX_HOUSEHOLDS})`); ids.push('households'); }
+    if (!name) { missing.push('vilket hushåll ni är'); ids.push('name'); }
+    if (missing.length) { showSetupError('Fyll i ' + joinSv(missing) + '.', ids); return; }
+
+    if (editingSetup) {
+      const oldKey = me();
+      if (keyOf(name) !== oldKey && modeRatings().some((r) => keyOf(r.name) === keyOf(name))) {
+        showSetupError(`Det finns redan omdömen från ${name} på den här telefonen. Välj ett annat namn.`, ['name']);
+        return;
+      }
+      if (isRanking()) {
+        const most = Math.max(0, ...[...new Set(modeRatings().map((r) => keyOf(r.name)))].map((k) => modeRatings().filter((r) => keyOf(r.name) === k).length));
+        if (n < most) { showSetupError(`Ni har redan rangordnat ${most} flaskor, så antalet hushåll kan inte vara färre.`, ['households']); return; }
+      }
+      state.ratings.forEach((r) => { if (r.mode === mode() && keyOf(r.name) === oldKey) r.name = name; });
+      S().households = n;
+      S().name = name;
+    } else {
+      state.setup = { mode: setupMode, households: n, name };
+    }
+    if (isRanking()) recomputeRanking();
+    state.lastName = name;
+    state.lastHouseholds = n;
+    persist();
+    goRate(editingSetup ? cur : null);
+  }
+
+  /* ---------- Betygsätt ---------- */
+  function goRate(bottle) {
+    const list = bottles();
+    const b = bottle && list.some((x) => keyOf(x) === keyOf(bottle)) ? bottle : (nextBottle() || list[0]);
+    selectBottle(b);
+    showForm();
+    renderWho();
+    show('rate');
+  }
+
+  function showForm() {
+    $('#rateForm').hidden = false;
+    $('#savedView').hidden = true;
+    $('#savedFact').hidden = true;
+  }
+
+  function renderWho() {
+    if (!S()) return;
+    const total = bottles().length, n = doneCount();
+    $('#who').innerHTML = `
+      <div class="who-top">
+        <div><span class="who-name">${esc(S().name)}</span><span class="who-sub">${MODES[mode()].name}, ${plural(N(), 'hushåll', 'hushåll')}</span></div>
+        <button type="button" class="pill-btn" data-setup-edit>Ändra</button>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Klara flaskor" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${n}"><i style="width:${total ? Math.round(n / total * 100) : 0}%"></i></div>
+      <span class="progress-text">${n} av ${total} flaskor klara</span>`;
+    const c = $('#tabCount');
+    c.textContent = modeRatings().length;
+    c.hidden = modeRatings().length === 0;
+  }
+
+  function selectBottle(b) {
+    cur = b || null;
+    const r = findMine(cur);
+    Object.keys(scores).forEach((k) => { scores[k] = 0; });
+    if (r) {
+      if (r.mode === 'categories') FSD.forEach((c) => { scores[c.key] = r[c.key]; });
+      else scores.score = r.score;
+    }
+    $('#comment').value = r ? (r.comment || '') : '';
+    rankPos = r ? mine().filter((x) => keyOf(x.bottle) !== keyOf(cur) && x.score > r.score).length : rankedOthers().length;
+    hideError();
+    renderBottles();
+    renderScales();
+    renderSaveBtn();
+  }
+
+  function renderBottles() {
+    const done = doneKeys();
+    $('#bottles').innerHTML = bottles().map((b) => {
+      const isDone = done.has(keyOf(b));
+      const sel = cur && keyOf(b) === keyOf(cur);
+      const wide = !/^\d+$/.test(b);
+      return `<button type="button" class="bt${isDone ? ' done' : ''}${wide ? ' wide' : ''}" data-b="${esc(b)}" aria-pressed="${!!sel}" aria-label="${esc(bottleLabel(b))}${isDone ? ', klar' : ''}">` +
+        `${esc(b)}${isDone ? `<span class="tick" aria-hidden="true">${svg(ICONS.check)}</span>` : ''}</button>`;
+    }).join('');
+    const hint = $('#bottleHint');
+    if (findMine(cur)) { hint.hidden = false; hint.textContent = `Ni har redan betygsatt ${bottleInText(cur)}. Ändra och spara igen om ni vill.`; }
+    else if (done.size) { hint.hidden = false; hint.textContent = 'Flaskor med grön bock har ni redan betygsatt.'; }
+    else hint.hidden = true;
+  }
+
+  function renderScales() {
+    if (isRanking()) { renderRankCard(); return; }
+    $('#scales').innerHTML = crits().map((c) => `
+      <fieldset class="card crit tone-${c.tone}" data-key="${c.key}">
+        <legend><span class="crit-head">
+          <span class="crit-icon">${svg(ICONS[c.icon])}</span>
+          <span class="crit-name">${c.label}</span>
+          <span class="crit-word unset" id="val-${c.key}">Välj 1–5</span>
+        </span></legend>
+        <div class="scale">
+          ${[1, 2, 3, 4, 5].map((v) => `<label class="b"><input type="radio" name="${c.key}" value="${v}" aria-label="${c.label} ${v} av 5, ${WORDS[v].replace('!', '').toLowerCase()}"><span aria-hidden="true">${v}</span></label>`).join('')}
+        </div>
+        <div class="ends" aria-hidden="true"><span>1 riktigt dålig</span><span>5 fantastisk</span></div>
+      </fieldset>`).join('');
+    crits().forEach((c) => setScore(c.key, scores[c.key]));
+  }
+
+  function setScore(key, v, fromTap) {
+    scores[key] = v;
+    const fs = document.querySelector(`.crit[data-key="${key}"]`);
+    if (!fs) return;
+    const bubbles = fs.querySelectorAll('.b');
+    bubbles.forEach((b, i) => {
+      b.classList.toggle('on', i < v);
+      b.classList.toggle('sel', i === v - 1);
+      b.classList.remove('pop');
+    });
+    fs.querySelectorAll('input').forEach((inp) => { inp.checked = Number(inp.value) === v; });
+    if (v) fs.classList.remove('invalid');
+    const word = $('#val-' + key);
+    word.textContent = v ? WORDS[v] : 'Välj 1–5';
+    word.classList.toggle('unset', !v);
+    if (fromTap && v) {
+      const b = bubbles[v - 1];
+      void b.offsetWidth;            // starta om studs-animationen
+      b.classList.add('pop');
+      if (v === 5) {
+        const r = b.getBoundingClientRect();
+        confetti.burst(r.left + r.width / 2, r.top + r.height / 2, 30);
+      }
+    }
+    renderSaveBtn();
+  }
+
+  function renderRankCard(focusDir) {
+    const others = rankedOthers();
+    rankPos = Math.max(0, Math.min(rankPos, others.length));
+    const list = [...others];
+    list.splice(rankPos, 0, cur);
+    const top = rankTop(list.length);
+    const hint = list.length === 1
+      ? 'Första flaskan hamnar överst. Nästa flaska placerar ni ovanför eller under den.'
+      : `Flytta ${bottleInText(cur)} upp eller ned tills den hamnar rätt. Bäst överst.`;
+    $('#scales').innerHTML = `
+      <div class="card crit tone-yellow" id="rankCard">
+        <div class="crit-head rank-head">
+          <span class="crit-icon">${svg(ICONS.trophy)}</span>
+          <span class="crit-name">Er rangordning</span>
+          <span class="crit-word" aria-live="polite">Plats ${rankPos + 1}, ${top - rankPos} p</span>
+        </div>
+        <p class="hint">${hint}</p>
+        <ol class="rank-list">
+          ${list.map((b, i) => {
+            const isCur = keyOf(b) === keyOf(cur);
+            return `<li class="rk${isCur ? ' cur' : ''}">
+              <span class="rk-pos">${i + 1}</span>
+              <span class="rk-name">${esc(bottleLabel(b))}</span>
+              <span class="rk-pts">${top - i} p</span>
+              ${isCur ? `<span class="mv">
+                <button type="button" data-move="-1" aria-label="Flytta ${esc(bottleInText(b))} upp"${i === 0 ? ' disabled' : ''}>${svg(ICONS.up)}</button>
+                <button type="button" data-move="1" aria-label="Flytta ${esc(bottleInText(b))} ned"${i === list.length - 1 ? ' disabled' : ''}>${svg(ICONS.down)}</button>
+              </span>` : ''}
+            </li>`;
+          }).join('')}
+        </ol>
+      </div>`;
+    if (focusDir) {
+      const btn = $(`#rankCard [data-move="${focusDir}"]`);
+      (btn && !btn.disabled ? btn : $(`#rankCard [data-move="${-focusDir}"]`)).focus();
+    }
+    renderSaveBtn();
+  }
+
+  function renderSaveBtn() {
+    if (!cur) return;
+    const edit = !!findMine(cur);
+    $('#saveText').textContent = edit ? `Spara ändringen för ${bottleInText(cur)}`
+      : isRanking() ? `Spara ${bottleInText(cur)} på plats ${rankPos + 1}`
+      : `Spara betyget för ${bottleInText(cur)}`;
+    const live = $('#liveAvg');
+    const show = mode() === 'categories' && FSD.every((c) => scores[c.key]);
+    live.hidden = !show;
+    if (show) live.textContent = fmt((scores.color + scores.smell + scores.taste) / 3);
+  }
+
+  function showError(msg) { const e = $('#error'); e.textContent = msg; e.hidden = false; }
+  function hideError() {
+    $('#error').hidden = true;
+    document.querySelectorAll('#view-rate .invalid').forEach((el) => el.classList.remove('invalid'));
+  }
+
+  function save() {
+    hideError();
+    if (!cur) { showError('Välj vilken flaska ni har smakat.'); return; }
+    const comment = $('#comment').value.trim();
+    const existing = findMine(cur);
+    const wasEdit = !!existing;
+    let res;
+
+    if (isRanking()) {
+      const list = rankedOthers();
+      list.splice(rankPos, 0, cur);
+      const top = rankTop(list.length);
+      list.forEach((b, i) => {
+        let r = findMine(b);
+        if (!r) { r = { id: uid(), at: Date.now(), mode: 'ranking', name: S().name, bottle: b, comment: '' }; state.ratings.push(r); }
+        r.score = top - i;
+        if (keyOf(b) === keyOf(cur)) r.comment = comment;
+      });
+      res = { pos: rankPos + 1, of: list.length, pts: top - rankPos, best: rankPos === 0 && list.length > 1 };
+    } else {
+      const missing = crits().filter((c) => !scores[c.key]);
+      if (missing.length) {
+        missing.forEach((c) => document.querySelector(`.crit[data-key="${c.key}"]`).classList.add('invalid'));
+        showError(mode() === 'simple' ? 'Välj ett betyg från 1 till 5.' : `Det saknas betyg för ${joinSv(missing.map((c) => c.label.toLowerCase()))}.`);
+        document.querySelector('#scales .invalid').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+        return;
+      }
+      const d = { mode: mode(), name: S().name, bottle: cur, comment };
+      if (mode() === 'categories') FSD.forEach((c) => { d[c.key] = scores[c.key]; });
+      else d.score = scores.score;
+      if (existing) Object.assign(existing, d);
+      else state.ratings.push({ id: uid(), at: Date.now(), ...d });
+      res = { d, full: mode() === 'categories' ? FSD.every((c) => d[c.key] === 5) : d.score === 5 };
+    }
+    persist();
+    showSaved(cur, wasEdit, res);
+  }
+
+  // Tydlig bekräftelse i stället för att formuläret står kvar
+  function showSaved(b, wasEdit, res) {
+    const total = bottles().length, n = doneCount();
+    const next = nextBottle(b);
+    let title = wasEdit ? 'Ändringen är sparad' : 'Sparat!', sum, note = '';
+    if (isRanking()) {
+      if (res.best) title = 'Ny etta!';
+      sum = `${bottleLabel(b)} ligger på plats ${res.pos} av ${res.of} och får ${plural(res.pts, 'poäng', 'poäng')}.`;
+      if (res.of < total) note = 'Poängen räknas om när ni placerar fler flaskor.';
+    } else if (mode() === 'categories') {
+      if (res.full) title = 'Full pott!';
+      sum = `${bottleLabel(b)} fick snittet ${fmt(value(res.d))}.`;
+      note = `Färg ${res.d.color}, doft ${res.d.smell}, smak ${res.d.taste}`;
+    } else {
+      if (res.full) title = 'Full pott!';
+      sum = `${bottleLabel(b)} fick ${res.d.score} av 5.`;
+      note = WORDS[res.d.score];
+    }
+    $('#savedView').innerHTML = `
+      <div class="check" aria-hidden="true">${svg(ICONS.check)}</div>
+      <h2 tabindex="-1">${title}</h2>
+      <p class="saved-sum">${esc(sum)}</p>
+      ${note ? `<p class="saved-note">${esc(note)}</p>` : ''}
+      <p class="saved-progress"><b>${n} av ${total}</b> flaskor klara${n === total ? '. Alla är betygsatta!' : ''}</p>
+      ${n === total ? '<p class="saved-note">Under Topplista kan ni visa er QR-kod, så att allas resultat samlas ihop i en lista.</p>' : ''}
+      <div class="saved-btns">
+        ${next ? `<button type="button" class="btn btn-go" data-next="${esc(next)}">Betygsätt ${esc(bottleInText(next))}</button>` : ''}
+        <button type="button" class="btn ${next ? 'btn-plain' : 'btn-go'}" data-goto="board">Se topplistan</button>
+        <button type="button" class="text-btn" data-again="${esc(b)}">Ändra ${esc(bottleInText(b))}</button>
+      </div>`;
+    $('#rateForm').hidden = true;
+    $('#savedView').hidden = false;
+    $('#savedFact').hidden = false;
+    factPos++;
+    renderFacts();
+    renderWho();
+    window.scrollTo(0, 0);
+    $('#savedView h2').focus({ preventScroll: true });
+    if (res.full || res.best) confetti.rain();
+  }
+
+  /* ---------- Topplistan ---------- */
+  function renderPodium(list) {
+    const top = list.slice(0, 3);
+    const order = [[], [0], [1, 0], [1, 0, 2]][top.length];   // tvåan till vänster, ettan i mitten
+    const pod = $('#podium');
+    pod.hidden = top.length === 0;
+    pod.style.gridTemplateColumns = `repeat(${top.length}, minmax(0, 1fr))`;
+    pod.style.maxWidth = top.length === 1 ? '10rem' : top.length === 2 ? '17rem' : '';
+    pod.innerHTML = order.map((i) => {
+      const b = top[i];
+      return `<button type="button" class="pod p${i + 1}" data-jump="${esc(b.key)}" aria-label="Plats ${b.rank}: ${esc(bottleLabel(b.name))}, ${fmtTotal(b.total)} ${totalUnit()}. Visa detaljer.">
+        ${i === 0 ? CROWN : ''}
+        <span class="pod-name">${esc(bottleLabel(b.name))}</span>
+        <span class="pod-score">${fmtTotal(b.total)}</span>
+        <span class="pod-block" aria-hidden="true">${b.rank}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function ratingRow(r) {
+    let val, pills = '';
+    if (r.mode === 'categories') {
+      val = fmt(value(r));
+      pills = FSD.map((c) => `<span class="mini tone-${c.tone}">${c.label} ${r[c.key]}</span>`).join('');
+    } else if (r.mode === 'simple') {
+      val = String(r.score);
+      pills = `<span class="mini tone-blue">${WORDS[r.score]}</span>`;
+    } else {
+      val = plural(r.score, 'poäng', 'poäng');
+    }
+    const own = keyOf(r.name) === me();
+    return `<li class="rating">
+      <div class="r-main">
+        <div class="r-top"><span class="r-name">${esc(r.name)}</span><span class="r-val">${val}</span></div>
+        ${pills ? `<div class="r-pills">${pills}</div>` : ''}
+        ${r.comment ? `<p class="r-comment">”${esc(r.comment)}”</p>` : ''}
+      </div>
+      ${own ? `<button type="button" class="icon-btn" data-edit="${esc(r.bottle)}" aria-label="Ändra omdömet för ${esc(bottleInText(r.bottle))}">${ICON_EDIT}</button>` : ''}
+      <button type="button" class="icon-btn del" data-del="${esc(r.id)}" aria-label="Radera ${esc(genitive(r.name))} omdöme">${ICON_DEL}</button>
+    </li>`;
+  }
+
+  function renderBoard() {
+    const list = bottleList();
+    const n = modeRatings().length;
+    const hh = new Set(modeRatings().map((r) => keyOf(r.name))).size;
+    $('#boardMeta').textContent = n ? `${MODES[mode()].name}: ${plural(list.length, 'flaska', 'flaskor')}, ${plural(n, 'omdöme', 'omdömen')} från ${plural(hh, 'hushåll', 'hushåll')}` : MODES[mode()].name;
+    collect.render();
+    $('#empty').hidden = n > 0;
+    $('#shareBtn').hidden = n === 0;
+    $('#listTitle').hidden = n === 0;
+    renderPodium(list);
+    $('#board').innerHTML = list.map((b, idx) => {
+      const open = expanded.has(b.key);
+      const medal = b.rank <= 3 ? ` r${b.rank}` : '';
+      const bars = mode() === 'categories' ? `<div class="bars">
+          ${FSD.map((c) => `<span>${c.label}</span><span class="bar tone-${c.tone}"><i style="width:${(b.m[c.key] / 5 * 100).toFixed(1)}%"></i></span><span class="num">${fmt(b.m[c.key])}</span>`).join('')}
+        </div>` : '';
+      return `<li class="card entry${medal}" data-key="${esc(b.key)}">
+        <button type="button" class="sum" data-toggle="${esc(b.key)}" aria-expanded="${open}" aria-controls="bottle-${idx}">
+          <span class="rank-badge" aria-label="Plats ${b.rank}">${b.rank}</span>
+          <span class="bmain"><span class="bname">${esc(bottleLabel(b.name))}</span><span class="bstats">${plural(b.n, 'omdöme', 'omdömen')}</span></span>
+          <span class="score"><b>${fmtTotal(b.total)}</b><span>${totalUnit()}</span></span>
+          ${ICON_CHEV}
+        </button>
+        <div class="details" id="bottle-${idx}"${open ? '' : ' hidden'}>
+          ${bars}
+          <ul class="ratings">${b.ratings.map(ratingRow).join('')}</ul>
+        </div>
+      </li>`;
+    }).join('');
+  }
+
+  function deleteRating(id) {
+    const r = state.ratings.find((x) => x.id === id);
+    if (!r) return;
+    const snapshot = clone(state.ratings);
+    state.ratings = state.ratings.filter((x) => x.id !== id);
+    if (r.mode === 'ranking') recomputeRanking(keyOf(r.name));
+    persist();
+    afterChange();
+    toast('Omdöme raderat', {
+      label: 'Ångra',
+      fn: () => { state.ratings = snapshot; persist(); afterChange(); toast('Omdömet är tillbaka'); }
+    });
+  }
+
+  function afterChange() {
+    renderBoard();
+    renderWho();
+    if (view === 'rate' && !$('#rateForm').hidden) selectBottle(cur);
+  }
+
+  async function shareBoard() {
+    const list = bottleList();
+    if (!list.length) return;
+    const date = new Date().toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const names = [...new Map(modeRatings().map((r) => [keyOf(r.name), r.name])).values()];
+    const text = [`Beskapp, topplista ${date}`, `Betygssystem: ${MODES[mode()].name}`, `Hushåll: ${joinSv(names)}`, '']
+      .concat(list.map((b) => `${b.rank}. ${bottleLabel(b.name)}: ${fmtTotal(b.total)} ${totalUnit()}`))
+      .join('\n');
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Beskapp', text }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Topplistan kopierad');
+    } catch (e) {
+      ask({ title: 'Kopiera topplistan', text: 'Markera texten och kopiera den.', pre: text });
+    }
+  }
+
+  function newTasting() {
+    const reset = () => {
+      state.ratings = [];
+      state.setup = null;
+      cur = null;
+      expanded.clear();
+      persist();
+      show('start');
+    };
+    const n = state.ratings.length;
+    if (!n) { reset(); return; }
+    ask({
+      title: 'Börja en ny provning?',
+      text: `Alla ${plural(n, 'omdöme', 'omdömen')} raderas från den här telefonen och går inte att få tillbaka. Dela gärna topplistan först.`,
+      ok: 'Radera och börja om',
+      danger: true,
+      onOk: () => { reset(); toast('Välj betygssystem för nästa provning'); }
+    });
+  }
+
+  /* ---------- Meddelanden och dialog ---------- */
+  let toastTimer = null;
+  function toast(msg, action) {
+    const t = $('#toast'), b = $('#toastBtn');
+    $('#toastMsg').textContent = msg;
+    if (action) {
+      b.hidden = false;
+      b.textContent = action.label;
+      b.onclick = () => { hideToast(); action.fn(); };
+    } else {
+      b.hidden = true;
+      b.onclick = null;
+    }
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, action ? 6000 : 2800);
+  }
+  function hideToast() { $('#toast').classList.remove('show'); }
+
+  function ask({ title, text, ok, danger, onOk, onDone, pre }) {
+    const d = $('#dlg');
+    $('#dlgTitle').textContent = title;
+    $('#dlgText').textContent = text;
+    const p = $('#dlgPre');
+    p.hidden = !pre;
+    p.value = pre || '';
+    const okBtn = $('#dlgOk');
+    okBtn.hidden = !onOk;
+    okBtn.textContent = ok || 'OK';
+    okBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-go');
+    $('#dlgCancel').textContent = onOk ? 'Avbryt' : 'Stäng';
+    if (typeof d.showModal !== 'function') {           // Mycket gamla webbläsare
+      if (pre) window.prompt(title, pre);
+      else if (onOk && window.confirm(text)) onOk();
+      return;
+    }
+    d.returnValue = '';
+    d.onclose = () => { if (d.returnValue === 'ok' && onOk) onOk(); if (onDone) onDone(); };
+    d.showModal();
+    if (pre) { p.focus(); p.select(); }
+  }
+
+  /* ---------- Snapsfakta ---------- */
+  const factOrder = FACTS.map((_, i) => i);
+  for (let i = factOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [factOrder[i], factOrder[j]] = [factOrder[j], factOrder[i]];
+  }
+  let factPos = 0;
+  function renderFacts() {
+    document.querySelectorAll('.fact-text').forEach((p) => { p.textContent = FACTS[factOrder[factPos % FACTS.length]]; });
+  }
+
+  /* ---------- Händelser ---------- */
+  function bind() {
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-goto],[data-sys],[data-setup-edit],[data-next],[data-again],.next-fact');
+      if (!t) return;
+      if (t.dataset.goto) {
+        if (t.dataset.goto === 'rate') { if ($('#savedView').hidden) { renderWho(); show('rate'); } else goRate(nextBottle(cur) || cur); }
+        else show(t.dataset.goto);
+      } else if (t.dataset.sys) openSetup(t.dataset.sys, false);
+      else if (t.hasAttribute('data-setup-edit')) openSetup(null, true);
+      else if (t.dataset.next) { selectBottle(t.dataset.next); showForm(); window.scrollTo(0, 0); }
+      else if (t.dataset.again) { selectBottle(t.dataset.again); showForm(); window.scrollTo(0, 0); }
+      else if (t.classList.contains('next-fact')) { factPos++; renderFacts(); }
+    });
+
+    // Inställning
+    $('#setupBack').addEventListener('click', () => { if (editingSetup) { renderWho(); show('rate'); } else show('start'); });
+    $('#view-setup').addEventListener('click', (e) => {
+      const s = e.target.closest('[data-step]');
+      if (s) setHouseholds((parseInt($('#households').value, 10) || 0) + Number(s.dataset.step));
+      const c = e.target.closest('[data-name]');
+      if (c) { $('#name').value = c.dataset.name; $('#field-name').classList.remove('invalid'); renderNameChips(); }
+    });
+    $('#households').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '');
+      $('#field-households').classList.remove('invalid');
+      renderHhHint();
+    });
+    $('#households').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#name').focus(); } });
+    $('#name').addEventListener('input', () => { $('#field-name').classList.remove('invalid'); renderNameChips(); });
+    $('#name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveSetup(); } });
+    $('#setupGo').addEventListener('click', saveSetup);
+
+    // Betygsätt
+    $('#bottles').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-b]');
+      if (b) selectBottle(b.dataset.b);
+    });
+    $('#scales').addEventListener('change', (e) => {
+      if (e.target.type === 'radio') {
+        setScore(e.target.name, Number(e.target.value), true);
+        if (!document.querySelector('#scales .invalid')) hideError();
+      }
+    });
+    $('#scales').addEventListener('click', (e) => {
+      const m = e.target.closest('[data-move]');
+      if (!m || m.disabled) return;
+      const dir = Number(m.dataset.move);
+      rankPos += dir;
+      renderRankCard(dir);
+    });
+    $('#saveBtn').addEventListener('click', save);
+
+    // Topplistan
+    $('#podium').addEventListener('click', (e) => {
+      const p = e.target.closest('[data-jump]');
+      if (!p) return;
+      expanded.add(p.dataset.jump);
+      renderBoard();
+      const entry = [...document.querySelectorAll('.entry')].find((el) => el.dataset.key === p.dataset.jump);
+      if (entry) entry.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    });
+    $('#board').addEventListener('click', (e) => {
+      const t = e.target.closest('[data-toggle],[data-edit],[data-del]');
+      if (!t) return;
+      if (t.dataset.toggle !== undefined) {
+        const k = t.dataset.toggle;
+        const open = !expanded.has(k);
+        open ? expanded.add(k) : expanded.delete(k);
+        t.setAttribute('aria-expanded', String(open));
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !open;
+      } else if (t.dataset.edit) {
+        goRate(t.dataset.edit);
+      } else if (t.dataset.del) {
+        deleteRating(t.dataset.del);
+      }
+    });
+    $('#shareBtn').addEventListener('click', shareBoard);
+    $('#clearBtn').addEventListener('click', newTasting);
+
+    // Synka om appen är öppen i två flikar
+    window.addEventListener('storage', (e) => {
+      if (e.key !== STORE_KEY) return;
+      load();
+      if (!S()) { show('start'); return; }
+      renderWho();
+      if (view === 'board') renderBoard();
+      if (view === 'rate' && !$('#rateForm').hidden) selectBottle(cur);
+    });
+  }
+
+  /* ---------- Samla ihop med QR-kod ---------- */
+  // Varje telefon visar sina omdömen som en QR-kod. Den som samlar ihop skannar koderna
+  // med kameran, och omdömena läggs in per hushåll. Inget skickas över nätet.
+  const collect = (() => {
+    const PREFIX = 'BESKAPP1:';
+    const MAX_BYTES = 1100;               // större koder blir svåra att läsa av från en skärm
+    const libs = {};
+    const loadScript = (src) => libs[src] || (libs[src] = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = () => { delete libs[src]; el.remove(); reject(new Error('Kunde inte ladda ' + src)); };
+      document.head.appendChild(el);
+    }));
+    const bytes = (t) => new TextEncoder().encode(t).length;
+    const canvas = document.createElement('canvas');
+    const c2d = canvas.getContext('2d', { willReadFrequently: true });
+    let qrText = '', wakeLock = null;
+    let stream = null, timer = null, paused = false;
+    const seen = new Set();               // koder som redan lästs under den här skanningen
+
+    function others() {
+      const m = new Map();
+      modeRatings().forEach((r) => { const k = keyOf(r.name); if (k !== me() && !m.has(k)) m.set(k, r.name); });
+      return [...m.values()];
+    }
+
+    function render() {
+      const o = others();
+      $('#collectInfo').textContent = o.length
+        ? `Insamlat från ${plural(o.length, 'hushåll', 'hushåll')}: ${joinSv(o)}.`
+        : 'Ett hushåll skannar, de andra visar sin kod. Då hamnar alla i samma topplista.';
+    }
+
+    function encode(maxComment) {
+      const r = mine().map((x) => {
+        const c = maxComment ? (x.comment || '').slice(0, maxComment) : '';
+        return x.mode === 'categories' ? [x.bottle, x.color, x.smell, x.taste, c] : [x.bottle, x.score, c];
+      });
+      return PREFIX + JSON.stringify({ m: mode(), h: N(), n: S().name, r });
+    }
+
+    function payload() {
+      for (const max of [120, 60, 25, 0]) {
+        const text = encode(max);
+        if (bytes(text) <= MAX_BYTES || max === 0) return { text, trimmed: mine().some((x) => (x.comment || '').length > max) };
+      }
+      return null;
+    }
+
+    function parse(text) {
+      const s = String(text || '').trim();
+      const i = s.indexOf(PREFIX);
+      if (i < 0) return null;
+      let d;
+      try { d = JSON.parse(s.slice(i + PREFIX.length)); } catch (e) { return null; }
+      if (!d || !MODES[d.m] || typeof d.n !== 'string' || !tidy(d.n) || !Array.isArray(d.r) || d.r.length > 200) return null;
+      const name = tidy(d.n).slice(0, 40);
+      const ratings = [];
+      for (const a of d.r) {
+        if (!Array.isArray(a)) return null;
+        const cat = d.m === 'categories';
+        const r = { id: uid(), at: Date.now(), mode: d.m, name, bottle: tidy(String(a[0] == null ? '' : a[0])).slice(0, 40) };
+        if (cat) { r.color = a[1]; r.smell = a[2]; r.taste = a[3]; } else r.score = a[1];
+        const c = cat ? a[4] : a[2];
+        r.comment = tidy(String(c == null ? '' : c)).slice(0, 300);
+        if (!isValidRating(r)) return null;
+        ratings.push(r);
+      }
+      return { mode: d.m, name, ratings };
+    }
+
+    // Ett hushålls omdömen ersätter allt som fanns från samma hushåll
+    function merge(p) {
+      const k = keyOf(p.name);
+      const existed = modeRatings().some((r) => keyOf(r.name) === k);
+      const known = state.ratings.find((r) => keyOf(r.name) === k);
+      if (known) p.ratings.forEach((r) => { r.name = known.name; });
+      state.ratings = state.ratings.filter((r) => !(r.mode === p.mode && keyOf(r.name) === k));
+      state.ratings.push(...p.ratings);
+      if (p.mode === 'ranking') recomputeRanking(k);
+      persist();
+      return existed;
+    }
+
+    const status = (msg) => { $('#scanStatus').textContent = msg; };
+
+    function renderCollected() {
+      $('#collected').innerHTML = others().map((n) => `<span>✓ ${esc(n)}</span>`).join('');
+    }
+
+    function receive(text) {
+      const p = parse(text);
+      if (!p) { status('Det där är ingen kod från Beskapp. Försök igen.'); return false; }
+      if (p.mode !== mode()) {
+        status(`Koden är från ${MODES[p.mode].name}, men er provning använder ${MODES[mode()].name}. Alla behöver samma betygssystem.`);
+        return false;
+      }
+      const apply = () => {
+        const existed = merge(p);
+        status(`${p.name}: ${plural(p.ratings.length, 'omdöme', 'omdömen')} ${existed ? 'uppdaterade' : 'tillagda'}. Skanna nästa telefon.`);
+        const v = $('#scanView');
+        v.classList.add('hit');
+        setTimeout(() => v.classList.remove('hit'), 900);
+        if (navigator.vibrate) navigator.vibrate(60);
+        renderCollected();
+        renderBoard();
+        renderWho();
+      };
+      if (keyOf(p.name) === me()) {
+        paused = true;
+        ask({
+          title: 'Samma namn som ert hushåll',
+          text: `Koden är från ${p.name}, samma namn som ni har här. Vill du ersätta era egna omdömen med dem i koden?`,
+          ok: 'Ersätt',
+          onOk: apply,
+          onDone: () => { paused = false; if (!$('#dlg').returnValue || $('#dlg').returnValue !== 'ok') seen.delete(text); }
+        });
+        return true;
+      }
+      apply();
+      return true;
+    }
+
+    async function showCode() {
+      if (!mine().length) { toast('Betygsätt minst en flaska först'); return; }
+      const { text, trimmed } = payload();
+      qrText = text;
+      const box = $('#qrBox');
+      try {
+        await loadScript('lib/qrcode.js');
+        const q = window.qrcode;
+        q.stringToBytes = q.stringToBytesFuncs['UTF-8'];
+        const qr = q(0, bytes(text) < 400 ? 'M' : 'L');
+        qr.addData(text, 'Byte');
+        qr.make();
+        const n = qr.getModuleCount(), pad = 4;
+        let d = '';
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + pad} ${r + pad}h1v1h-1z`;
+        box.innerHTML = `<svg viewBox="0 0 ${n + 2 * pad} ${n + 2 * pad}" shape-rendering="crispEdges" role="img" aria-label="QR-kod med ${esc(genitive(S().name))} omdömen"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+        box.hidden = false;
+      } catch (e) {
+        box.hidden = true;
+      }
+      $('#qrTitle').textContent = `${genitive(S().name)} QR-kod`;
+      $('#qrLead').textContent = box.hidden
+        ? 'QR-koden gick inte att visa. Dela koden som text till den som samlar ihop.'
+        : 'Låt den som samlar ihop skanna koden i Beskapp, under Topplista.';
+      $('#qrNote').textContent = `${plural(mine().length, 'omdöme', 'omdömen')} i ${MODES[mode()].name}.` +
+        (trimmed ? ' Långa noteringar är förkortade så att koden går att läsa.' : '');
+      $('#qrDlg').showModal();
+      try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
+    }
+
+    async function shareText() {
+      if (navigator.share) {
+        try { await navigator.share({ text: qrText }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      try {
+        await navigator.clipboard.writeText(qrText);
+        toast('Koden är kopierad. Skicka den till den som samlar ihop.');
+      } catch (e) {
+        ask({ title: 'Kopiera koden', text: 'Markera texten, kopiera den och skicka den till den som samlar ihop.', pre: qrText });
+      }
+    }
+
+    function fallback(msg) {
+      status(msg);
+      $('#scanView').hidden = true;
+      $('#pasteBox').hidden = false;
+      $('#pasteToggle').hidden = true;
+    }
+
+    async function openScanner() {
+      paused = false;
+      seen.clear();
+      $('#scanView').hidden = false;
+      $('#pasteBox').hidden = true;
+      $('#pasteToggle').hidden = false;
+      $('#pasteText').value = '';
+      renderCollected();
+      status('Startar kameran…');
+      $('#scanDlg').showModal();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        fallback('Kameran går inte att använda i den här webbläsaren. Klistra in en kod i stället.');
+        return;
+      }
+      try { await loadScript('lib/jsQR.js'); }
+      catch (e) { fallback('QR-läsaren gick inte att ladda. Klistra in en kod i stället.'); return; }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      } catch (e) {
+        fallback(e && e.name === 'NotAllowedError'
+          ? 'Beskapp får inte använda kameran. Tillåt kameran i telefonens inställningar, eller klistra in en kod i stället.'
+          : 'Ingen kamera hittades. Klistra in en kod i stället.');
+        return;
+      }
+      if (!$('#scanDlg').open) { stopCamera(); return; }
+      const v = $('#scanVideo');
+      v.srcObject = stream;
+      try { await v.play(); } catch (e) { /* startar när bilden kommer */ }
+      status(others().length ? 'Rikta kameran mot nästa telefons QR-kod.' : 'Rikta kameran mot QR-koden på en annan telefon.');
+      timer = setInterval(scanFrame, 200);
+    }
+
+    function scanFrame() {
+      const v = $('#scanVideo');
+      if (paused || !window.jsQR || v.readyState < 2 || !v.videoWidth) return;
+      const scale = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+      canvas.width = Math.round(v.videoWidth * scale);
+      canvas.height = Math.round(v.videoHeight * scale);
+      c2d.drawImage(v, 0, 0, canvas.width, canvas.height);
+      const img = c2d.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+      if (!code) return;
+      let text = code.data;
+      try { text = new TextDecoder('utf-8').decode(new Uint8Array(code.binaryData)); } catch (e) { /* använd code.data */ }
+      if (seen.has(text)) return;          // samma kod står kvar framför kameran
+      seen.add(text);
+      receive(text);
+    }
+
+    function stopCamera() {
+      clearInterval(timer);
+      timer = null;
+      if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+      $('#scanVideo').srcObject = null;
+    }
+
+    function init() {
+      $('#showQrBtn').addEventListener('click', showCode);
+      $('#scanBtn').addEventListener('click', openScanner);
+      $('#qrShare').addEventListener('click', shareText);
+      $('#qrDlg').addEventListener('close', () => { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } });
+      $('#scanDlg').addEventListener('close', () => { stopCamera(); renderBoard(); });
+      $('#pasteToggle').addEventListener('click', () => { $('#pasteBox').hidden = false; $('#pasteToggle').hidden = true; $('#pasteText').focus(); });
+      $('#pasteGo').addEventListener('click', () => { if (receive($('#pasteText').value)) $('#pasteText').value = ''; });
+    }
+    return { init, render };
+  })();
+
+  /* ---------- Installera som app ---------- */
+  const embedded = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  const install = (() => {
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isPhone = isIOS || isAndroid;
+    // Webbläsare inbyggda i andra appar (Messenger, Facebook, Instagram …) kan inte installera appar
+    const inApp = /FBAN|FBAV|FB_IAB|Instagram|Messenger|Snapchat|Line\/|LinkedInApp|GSA\//i.test(ua) || (isAndroid && /; wv\)/.test(ua));
+    const iosChrome = /CriOS/i.test(ua);
+    const SHOWN_KEY = 'beskapp.installShown';
+    const SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Dela"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1"/></svg>';
+    let deferred = null;       // Chromes egen installationsfråga, när den finns
+    let showingSteps = false;
+
+    const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const canOffer = () => !embedded && !standalone() && (isPhone || deferred);
+    const dlg = () => $('#installDlg');
+
+    function steps() {
+      if (inApp) return [
+        `Tryck på <b>⋯</b> eller <b>⋮</b> i hörnet och välj <b>${isIOS ? 'Öppna i Safari' : 'Öppna i Chrome'}</b> eller <b>Öppna i webbläsare</b>.`,
+        'Den här rutan visas igen när sidan öppnas där, med stegen för att installera.'
+      ];
+      if (isIOS && iosChrome) return [
+        `Tryck på Dela-knappen ${SHARE} uppe till höger i adressfältet.`,
+        'Välj <b>Lägg till på hemskärmen</b>.',
+        'Tryck på <b>Lägg till</b>. Nu ligger Beskapp bland dina appar.'
+      ];
+      if (isIOS) return [
+        `Tryck på Dela-knappen ${SHARE} i Safari. Ser du den inte, tryck först på <b>⋯</b> bredvid adressfältet.`,
+        'Välj <b>Lägg till på hemskärmen</b>. Bläddra ned i listan om du inte ser det direkt.',
+        'Tryck på <b>Lägg till</b>. Nu ligger Beskapp bland dina appar.'
+      ];
+      return [
+        'Tryck på menyknappen <b>⋮</b> uppe till höger i webbläsaren.',
+        'Välj <b>Installera app</b> eller <b>Lägg till på startskärmen</b>.',
+        'Tryck på <b>Installera</b>. Nu ligger Beskapp bland dina appar.'
+      ];
+    }
+
+    function fill() {
+      $('#installTitle').textContent = isIOS && !inApp ? 'Lägg Beskapp på hemskärmen' : 'Installera Beskapp';
+      $('#installLead').textContent = inApp
+        ? 'Det går inte härifrån. Öppna sidan i telefonens vanliga webbläsare först.'
+        : 'Då ligger den bland dina appar, öppnas i helskärm och fungerar utan internet.';
+      const list = $('#installSteps');
+      list.innerHTML = steps().map((t) => `<li><span>${t}</span></li>`).join('');
+      list.hidden = !showingSteps;
+      const note = $('#installNote');
+      note.hidden = !(showingSteps && isIOS && !inApp && state.ratings.length);
+      note.textContent = 'Appen på hemskärmen sparar sina omdömen för sig. De omdömen som redan finns här i webbläsaren följer inte med.';
+      $('#installGo').textContent = showingSteps ? 'Okej' : 'Installera';
+      $('#installLater').hidden = showingSteps;
+    }
+
+    function open() {
+      showingSteps = isIOS || inApp;   // På iPhone finns ingen knapp som kan installera, så stegen visas direkt
+      fill();
+      try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch (e) { /* visas igen nästa gång */ }
+      const d = dlg();
+      if (typeof d.showModal === 'function' && !d.open) d.showModal();
+    }
+
+    function close() { if (dlg().open) dlg().close(); }
+
+    async function go() {
+      if (showingSteps) { close(); return; }
+      if (deferred) {
+        const prompt = deferred;
+        deferred = null;
+        close();
+        prompt.prompt();
+        try { await prompt.userChoice; } catch (e) { /* användaren stängde rutan */ }
+        render();
+        return;
+      }
+      showingSteps = true;   // Chrome har inte erbjudit installation än: visa vägen via menyn
+      fill();
+    }
+
+    function render() { $('#installLink').hidden = !canOffer(); }
+
+    // Visas av sig själv när sidan öppnas i telefonens webbläsare, en gång per besök
+    function autoOpen() {
+      if (!isPhone || !canOffer()) return;
+      let shown = false;
+      try { shown = sessionStorage.getItem(SHOWN_KEY) === '1'; } catch (e) { /* visa */ }
+      if (!shown) open();
+    }
+
+    function init() {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferred = e;
+        render();
+        if (dlg().open && !inApp) { showingSteps = false; fill(); }   // byt till riktig installationsknapp
+      });
+      window.addEventListener('appinstalled', () => { deferred = null; close(); render(); toast('Beskapp är installerad'); });
+      $('#installGo').addEventListener('click', go);
+      $('#installLater').addEventListener('click', close);
+      $('#installLink').addEventListener('click', open);
+      render();
+      setTimeout(autoOpen, 700);
+
+      // Service worker: gör appen installerbar i Chrome och låter den starta utan internet
+      if ('serviceWorker' in navigator && window.isSecureContext && !embedded) {
+        window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+      }
+    }
+    return { init };
+  })();
+
+  /* ---------- Start ---------- */
+  load();
+  buildGarland();
+  renderStart();
+  renderFacts();
+  bind();
+  collect.init();
+  install.init();
+  if (!S()) show('start');
+  else if (nextBottle()) goRate(null);
+  else { renderWho(); selectBottle(bottles()[0]); show('board'); }
+})();
+</script>
 </body>
 </html>
