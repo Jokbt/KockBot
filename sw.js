@@ -1,77 +1,98 @@
-/* Beskapp service worker
-   Gör appen installerbar och låter den starta utan internet.
-   Sidan hämtas från nätet först, så att en ny version syns direkt.
-   Utan nät används den senast sparade versionen. */
-
-const CACHE = 'beskapp-v2';
-const CORE = [
-  './',
-  'index.html',
-  'manifest.webmanifest',
-  'icons/favicon.svg',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png',
-  'lib/qrcode.js',
-  'lib/jsQR.js'
-];
+/* KockBot service worker
+ * - Appens egna filer visas direkt från enhetens cache och uppdateras i bakgrunden.
+ * - Bibliotek och typsnitt från CDN sparas också, så att appen startar utan täckning.
+ * - Databas, inloggning, AI och bilduppladdning går alltid direkt mot nätet (Firebase sköter själv sin offline-cache).
+ * Versionen byts automatiskt av byggskriptet; när den ändras installeras den nya versionen och appen visar "Ny version finns".
+ */
+const VERSION = '290392519f';
+const APP_CACHE = `kockbot-app-${VERSION}`;
+const CDN_CACHE = 'kockbot-cdn-v1';
+// './' är startsidan (index.html på GitHub Pages). KockBot.html finns bara kvar för lokal testning.
+const PRECACHE = ['./', './kockbot-app.js?v=290392519f', './kockbot.css?v=290392519f', './logo.png', './manifest.json'];
+const START_PAGES = ['./', './index.html', './KockBot.html'];
+const CDN_HOSTS = ['www.gstatic.com', 'esm.sh', 'unpkg.com', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => Promise.all(CORE.map((url) => cache.add(url).catch(() => {}))))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(APP_CACHE);
+    // Filer som saknas (t.ex. om sidan heter index.html) hoppas över i stället för att stoppa installationen
+    await Promise.allSettled(PRECACHE.map((url) => cache.add(new Request(url, { cache: 'reload' }))));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('kockbot-app-') && k !== APP_CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
+const staleWhileRevalidate = async (event, cacheName) => {
+  const request = event.request;
+  const cache = await caches.open(cacheName);
+  const isNavigation = request.mode === 'navigate';
+  const cached = await cache.match(request, { ignoreSearch: isNavigation, ignoreVary: true });
+  const network = fetch(request)
+    .then((response) => {
+      if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone()).catch(() => {});
+      return response;
+    })
+    .catch(() => null);
+  if (cached) {
+    event.waitUntil(network);
+    return cached;
+  }
+  const response = await network;
+  if (response) return response;
+  if (isNavigation) {
+    for (const page of START_PAGES) {
+      const fallback = await cache.match(page, { ignoreVary: true });
+      if (fallback) return fallback;
+    }
+  }
+  return Response.error();
+};
 
-  // Själva sidan: nätet först, sparad kopia om nätet saknas
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            event.waitUntil(caches.open(CACHE).then((c) => c.put('index.html', copy)));
-          }
-          return res;
-        })
-        .catch(() => caches.match('index.html').then((hit) => hit || caches.match('./')))
-    );
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin === self.location.origin) {
+    if (url.pathname.endsWith('/sw.js')) return;
+    event.respondWith(staleWhileRevalidate(event, APP_CACHE));
     return;
   }
+  if (CDN_HOSTS.includes(url.hostname) && !url.pathname.startsWith('/identitytoolkit')) {
+    event.respondWith(staleWhileRevalidate(event, CDN_CACHE));
+  }
+  // Allt annat (Firestore, inloggning, Gemini, Storage, AI-bilder) går direkt till nätet.
+});
 
-  // Ikoner, manifest och typsnitt: sparad kopia direkt, uppdateras i bakgrunden
-  const sameOrigin = url.origin === self.location.origin;
-  const fonts = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
-  if (!sameOrigin && !fonts) return;
+// ---- Påminnelser (skickas av notiser/skicka.mjs via GitHub) ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  const shown = self.registration.showNotification(data.title || 'KockBot', {
+    body: data.body || '',
+    icon: './logo.png',
+    badge: './logo.png',
+    tag: data.tag || 'kockbot',
+    lang: 'sv',
+    data: { url: data.url || './' },
+  });
+  try { event.waitUntil(shown); } catch (e) { /* testhändelser */ }
+});
 
-  event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const hit = await cache.match(req);
-      const fresh = fetch(req)
-        .then((res) => {
-          if (res.ok || res.type === 'opaque') cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => hit || Response.error());
-      if (hit) {
-        event.waitUntil(fresh);
-        return hit;
-      }
-      return fresh;
-    })
-  );
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  const open = (async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const existing = windows.find((w) => w.url.startsWith(self.registration.scope));
+    if (existing) return existing.focus();
+    return self.clients.openWindow(url);
+  })();
+  try { event.waitUntil(open); } catch (e) { /* testhändelser */ }
 });
